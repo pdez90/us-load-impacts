@@ -1,14 +1,27 @@
 US DATA CENTER INVENTORIES THROUGH ONE IMPACT CHAIN (u = 0.58; no transmission-loss gross-up)
+  Atlas of Data Center Politics        operating  2106 sites (1760 with MW)    44.0 GW   223.4 TWh  CO2  76.1 Mt (avg) / 145.4 (marginal)  deaths   175 /   368  water   218 GL
+  Atlas of Data Center Politics        partly built   150 sites ( 142 with MW)    16.6 GW    84.2 TWh  CO2  28.3 Mt (avg) /  55.1 (marginal)  deaths    65 /   141  water    86 GL
+  Atlas of Data Center Politics        pipeline   1421 sites (1002 with MW)   386.7 GW  1964.8 TWh  CO2 681.1 Mt (avg) / 1279.9 (marginal)  deaths  1684 /  3532  water  2035 GL
   Epoch AI                             operating    60 sites (  60 with MW)    16.2 GW    82.3 TWh  CO2  29.4 Mt (avg) /  55.2 (marginal)  deaths    70 /   149  water    84 GL
   Epoch AI                             pipeline     43 sites (  43 with MW)    27.2 GW   138.2 TWh  CO2  50.6 Mt (avg) /  90.8 (marginal)  deaths   123 /   256  water   147 GL
   Kyars Data Center Atlas              operating   190 sites (  12 with MW)     4.9 GW    24.7 TWh  CO2   9.0 Mt (avg) /  16.4 (marginal)  deaths    27 /    54  water    20 GL
   Kyars Data Center Atlas              pipeline    256 sites (  76 with MW)   102.8 GW   522.5 TWh  CO2 188.4 Mt (avg) / 335.3 (marginal)  deaths   462 /   965  water   516 GL
   PNNL IM3 (OpenStreetMap)             operating  1238 sites (1238 with MW)    28.5 GW   144.7 TWh  CO2  47.1 Mt (avg) /  94.5 (marginal)  deaths    99 /   219  water   141 GL
   Harvard (Guidi et al.), reference    operating   403 sites ( 403 with MW)    16.1 GW    81.8 TWh  CO2  25.7 Mt (avg) /     - (marginal)  deaths    64 /     -  water    87 GL
+ATLAS OF DATA CENTER POLITICS, OPERATING SITES BY KIND (u = 0.58)
+  100 MW and over      151 sites ( 117 with MW)   25.9 GW  131.4 TWh  deaths  106 (avg)
+  crypto mining         64 sites (  58 with MW)    2.1 GW   10.6 TWh  deaths    9 (avg)
+  under 100 MW        1891 sites (1585 with MW)   16.0 GW   81.3 TWh  deaths   61 (avg)
 OVERLAP (a site counts as found if the other dataset has one within 5 km)
   Epoch AI                     in Kyars Data Center Atlas       64.9% of sites, 78.0% of MW
   Epoch AI                     in PNNL IM3 (OpenStreetMap)      49.4% of sites, 36.2% of MW
+  Epoch AI                     in Atlas of Data Center Politics 100.0% of sites, 100.0% of MW
   Kyars Data Center Atlas      in Epoch AI                      17.5% of sites, 25.0% of MW
   Kyars Data Center Atlas      in PNNL IM3 (OpenStreetMap)      46.7% of sites,  5.5% of MW
+  Kyars Data Center Atlas      in Atlas of Data Center Politics  93.6% of sites, 84.6% of MW
   PNNL IM3 (OpenStreetMap)     in Epoch AI                      20.8% of sites, 32.4% of MW
   PNNL IM3 (OpenStreetMap)     in Kyars Data Center Atlas       55.9% of sites, 63.7% of MW
+  PNNL IM3 (OpenStreetMap)     in Atlas of Data Center Politics  97.3% of sites, 99.6% of MW
+  Atlas of Data Center Politics in Epoch AI                      10.4% of sites, 13.0% of MW
+  Atlas of Data Center Politics in Kyars Data Center Atlas       41.2% of sites, 35.3% of MW
+  Atlas of Data Center Politics in PNNL IM3 (OpenStreetMap)      46.1% of sites, 17.6% of MW

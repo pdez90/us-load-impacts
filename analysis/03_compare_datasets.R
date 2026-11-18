@@ -21,8 +21,9 @@
 #   supply     the eGRID subregion containing the site; average and non-baseload mixes
 #   impacts    CO2, PM2.5 deaths (Krewski) and power-plant water per MWh from the
 #              tool's per-subregion results; no transmission-loss gross-up (as Harvard)
-# Status: "operating" (built and running) and "pipeline" (under construction,
-# permitted, planned or announced, at full build-out). Cancelled sites are dropped.
+# Status: "operating" (built and running), "partly built" (Atlas campuses running but still
+# under construction, MW = full build-out) and "pipeline" (under construction, permitted,
+# planned or announced, at full build-out). Cancelled sites are dropped.
 # =============================================================================
 source(file.path(if (nzchar(Sys.getenv("USLOAD_ROOT"))) Sys.getenv("USLOAD_ROOT") else ".", "scripts/00_config.R"))
 suppressPackageStartupMessages(library(jsonlite))
@@ -100,12 +101,19 @@ read_pnnl <- function() {
 
 # ---- 4. Atlas of Data Center Politics (optional, if a copy has been saved) ----------------------
 read_adp <- function() {
+  # status "operating" in the Atlas covers campuses that are only partly built; for those
+  # (stage_values also lists Under Construction / Planned, or Partially Operational) capacity_mw is the
+  # campus build-out, so they are kept apart as "partly built" rather than counted as operating load.
   f <- file.path(FAC, "adp_data_centers.geojson"); if (!file.exists(f)) return(NULL)
   g <- st_read(f, quiet = TRUE); g <- g[g$country_a3 == "USA", ]; xy <- st_coordinates(st_centroid(st_geometry(g)))
-  st <- tolower(g$status)
-  data.table(dataset = "Atlas of Data Center Politics", site = g$name, lon = xy[, 1], lat = xy[, 2],
-             status = fifelse(st == "operating", "operating", fifelse(st == "planned", "pipeline", "dropped")),
-             mw = num(g$capacity_mw), mw_basis = fifelse(is.na(num(g$capacity_mw)), "size class only", "reported capacity"))[status != "dropped"]
+  st <- tolower(g$status); sv <- vapply(g$stage_values, function(v) paste(unlist(v), collapse = ","), "")
+  full_op <- grepl("^Operational$", sv) | sv == ""
+  cls <- fifelse(st == "operating" & full_op, "operating", fifelse(st == "operating", "partly built",
+                 fifelse(st == "planned", "pipeline", "dropped")))
+  mw <- num(g$capacity_mw)
+  data.table(dataset = "Atlas of Data Center Politics", site = g$name, lon = xy[, 1], lat = xy[, 2], status = cls, mw = mw,
+             operator_type = g$operator_type, size_class = g$size_bucket,
+             mw_basis = fifelse(is.na(mw), "size class only", fifelse(cls == "partly built", "reported campus capacity (includes unbuilt phases)", "reported capacity")))[status != "dropped"]
 }
 
 S <- rbindlist(Filter(Negate(is.null), list(read_epoch(), read_kyars(), read_pnnl(), read_adp())), fill = TRUE)
@@ -152,6 +160,15 @@ for (i in seq_len(nrow(sm))) with(sm[i], say("  %-36s %-9s %5d sites (%4d with M
                                            dataset, status, sites, sites_with_mw, gw, twh, co2_mt_avg, ifelse(is.na(co2_mt_nb), "-", sprintf("%.1f", co2_mt_nb)),
                                            deaths_avg, ifelse(is.na(deaths_nb), "-", sprintf("%.0f", deaths_nb)), water_GL_avg))
 
+# ---- Atlas of Data Center Politics: where the operating MW sit ----------------------------------------
+A <- S[dataset == "Atlas of Data Center Politics" & status == "operating"]
+if (nrow(A)) {
+  say("ATLAS OF DATA CENTER POLITICS, OPERATING SITES BY KIND (u = %.2f)", U[["central"]])
+  A[, kind := fifelse(operator_type %in% "Crypto", "crypto mining", fifelse(size_class %in% c("hyperscale", "gigascale"), "100 MW and over", "under 100 MW"))]
+  for (r in split(A, A$kind)) say("  %-18s %5d sites (%4d with MW) %6.1f GW %6.1f TWh  deaths %4.0f (avg)",
+                                  r$kind[1], nrow(r), sum(!is.na(r$mw)), sum(r$mw, na.rm = TRUE) / 1e3, sum(r$twh, na.rm = TRUE), sum(r$deaths_avg, na.rm = TRUE))
+}
+
 # ---- overlap: how many of one dataset's sites appear in another (within 5 km) ---------------------
 # one point per physical site (operating and pipeline rows of a site are merged; MW = operating + pipeline)
 P <- S[, .(mw = if (all(is.na(mw))) NA_real_ else sum(mw, na.rm = TRUE)), by = .(dataset, site, lon, lat)]
@@ -171,14 +188,15 @@ for (i in seq_len(nrow(ov))) with(ov[i], say("  %-28s in %-28s %5.1f%% of sites,
 # ---- figures --------------------------------------------------------------------------------------
 pal <- c("Epoch AI" = "#e67e22", "Kyars Data Center Atlas" = "#2980b9", "PNNL IM3 (OpenStreetMap)" = "#27ae60",
          "Atlas of Data Center Politics" = "#8e44ad", "Harvard (Guidi et al.), reference" = "#2c3e50")
-op <- sm[status == "operating"]; op[, lab := sub(" \\(.*", "", dataset)]
+op <- sm[status == "operating"]; op[, lab := c("Atlas of Data Center Politics" = "Atlas of DC\nPolitics", "Epoch AI" = "Epoch AI", "Kyars Data Center Atlas" = "Kyars Atlas",
+  "PNNL IM3 (OpenStreetMap)" = "PNNL IM3", "Harvard (Guidi et al.), reference" = "Harvard\n(reference)")[dataset]]
 png(file.path(OUT, "datasets_compare.png"), width = 2400, height = 1000, res = 200)
-par(mfrow = c(1, 4), mar = c(9, 4.5, 3, 1))
+par(mfrow = c(1, 4), mar = c(7, 4.5, 3, 1), oma = c(2, 0, 0, 0), mgp = c(3, 0.6, 0))
 for (v in list(c("twh", "Electricity (TWh/yr)"), c("co2_mt_avg", "CO2, average mix (Mt/yr)"), c("deaths_avg", "PM2.5 deaths, average mix (/yr)"), c("water_GL_avg", "Power-plant water (GL/yr)"))) {
-  y <- op[[v[1]]]; b <- barplot(y, names.arg = op$lab, las = 2, col = pal[op$dataset], border = NA, main = v[2], cex.names = 0.85, cex.main = 0.95, ylim = c(0, max(y, na.rm = TRUE) * 1.15))
+  y <- op[[v[1]]]; b <- barplot(y, names.arg = op$lab, las = 2, mgp = c(3, 0.4, 0), col = pal[op$dataset], border = NA, main = v[2], cex.names = 0.85, cex.main = 0.95, ylim = c(0, max(y, na.rm = TRUE) * 1.15))
   text(b, y, formatC(y, format = "fg", digits = 3, big.mark = ","), pos = 3, cex = 0.8, xpd = NA)
 }
-mtext("Operating sites only, u = 0.58. Kyars: only sites with a reported operational MW. PNNL: MW estimated from floor area.", side = 1, outer = TRUE, line = -1, cex = 0.7)
+mtext("Operating sites only, u = 0.58. Atlas: fully operational sites (partly built campuses excluded). Kyars: only sites with a reported operational MW. PNNL: MW estimated from floor area.", side = 1, outer = TRUE, line = 0.8, cex = 0.7)
 dev.off()
 png(file.path(OUT, "datasets_map.png"), width = 2200, height = 1400, res = 220)
 par(mar = c(0.5, 0.5, 2, 0.5)); us <- st_transform(st_union(sr[!(sr$subrgn %in% NON_CONUS), ]), LCC)

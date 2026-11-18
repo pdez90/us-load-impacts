@@ -53,7 +53,7 @@ python3 scripts/01e_epoch_coordinates.py data-raw/facilities/epoch_map_coordinat
 Rscript analysis/03_compare_datasets.R                               # -> analysis/output/datasets_*
 ```
 
-The Atlas of Data Center Politics is used too if a copy is saved as `data-raw/facilities/adp_data_centers.geojson` (its site asks for exports to be requested rather than scripted).
+The Atlas of Data Center Politics is used too if a copy is saved as `data-raw/facilities/adp_data_centers.geojson` (its site asks for exports to be requested rather than scripted). Atlas campuses marked operating but still listing construction or planned phases are reported as "partly built", because their capacity is the full campus build-out; crypto-mining sites are broken out in `datasets_summary.txt`.
 
 ## Run and deploy
 
