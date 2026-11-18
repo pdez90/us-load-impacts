@@ -74,6 +74,15 @@ test_that("on-site and clean scenarios", {
   expect_equal(c(z$co2_t, z$deaths), c(0, 0)); expect_equal(z$water_site_ML, 1.8 * 0.4e9 / 1e6)
   expect_equal(nrow(compare_scenarios(app, fips = fips, twh = twh)), 5)
 })
+test_that("block-group groups are consistent", {
+  expect_false(is.null(app$ses)); fips <- app$counties$fips[10]; twh <- 1
+  r <- impact(app, fips, twh, scenario = "avg"); d <- r$ses
+  expect_equal(d$ratio[d$group == "Total"], 1)
+  expect_equal(sum(d$pop[d$group %in% paste0("income_q", 1:5)]), sum(app$ses$pop["Total"]) - 0, tolerance = 0.3)   # minus block groups without an income
+  expect_equal(d$deaths[d$group == "Total"], sum(d$deaths[d$group %in% c("below_poverty", "near_poverty", "above_2x_poverty")]), tolerance = 0.5)
+  r2 <- impact(app, fips, 2 * twh, scenario = "avg"); expect_equal(r2$ses$dpm_ugm3, 2 * d$dpm_ugm3)   # linear in load
+  rc <- impact(app, fips, twh, scenario = "custom"); expect_equal(rc$ses$dpm_ugm3, d$dpm_ugm3, tolerance = 1e-6)  # default custom = average
+})
 test_that("the Shiny server runs", {
   Sys.setenv(USLOAD_APP_DATA = file.path(Sys.getenv("USLOAD_DATA"), "app_data.rds"))
   env <- new.env(); sys.source("app.R", envir = env, chdir = FALSE)
@@ -83,7 +92,8 @@ test_that("the Shiny server runs", {
                       os_pm = 0.03, os_water = 0, os_h = 60, crf = "krewski", vsl = 13)
     expect_match(output$vb_twh, "0.788 TWh"); expect_match(output$vb_deaths, "per year"); expect_match(output$vb_water, "ML/yr")
     expect_true(is.list(output$where_tab) || is.character(output$where_tab)); expect_silent(output$cmp_tab); expect_silent(output$mix_tab)
-    expect_silent(output$top_tab); expect_silent(output$grp_plot); expect_silent(output$plant_tab); expect_silent(output$mix_plot)
+    expect_silent(output$top_tab); expect_match(output$grp_ui$html, "grp_set"); expect_silent(output$ses_plot); expect_silent(output$ses_tab);
+    session$setInputs(grp_set = "Poverty"); expect_match(output$ses_tab, "poverty line"); expect_silent(output$plant_tab); expect_silent(output$mix_plot)
     expect_match(output$scenario_help$html, "kg CO2 per MWh"); expect_match(output$region_note$html, "Found automatically")
     expect_match(output$options_help$html, "Keep in mind")
     session$setInputs(map_zoom = 9, map_bounds = list(north = 60, south = 10, east = -60, west = -130)); session$elapse(500)
@@ -94,7 +104,7 @@ test_that("the Shiny server runs", {
     expect_match(output$latlon_note$html, app$counties$name[20]); expect_match(output$vb_co2, "kt/yr")
     session$setInputs(lat = 10, lon = 10); expect_error(output$vb_co2, "outside the contiguous")
     session$setInputs(loc_mode = "county")
-    session$setInputs(scenario = "custom"); expect_match(output$vb_co2, "kt/yr"); expect_match(output$custom_ui$html, "cs_"); expect_match(output$loss_help$html, "eGRID2023")
+    session$setInputs(scenario = "custom"); expect_match(output$vb_co2, "kt/yr"); expect_silent(output$ses_plot); expect_match(output$custom_ui$html, "cs_"); expect_match(output$loss_help$html, "eGRID2023")
     expect_match(output$map_mode, "county only")
     session$setInputs(scenario = "avg", subrgn = sort(unique(app$mix$subrgn))[1], mw = NA); expect_match(output$vb_twh, "^0 TWh")
   })

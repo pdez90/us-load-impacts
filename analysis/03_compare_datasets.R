@@ -14,6 +14,9 @@
 #      analysis/output/datasets_summary.csv     one row per dataset x status x mix
 #      analysis/output/datasets_overlap.csv     share of each dataset's sites found in another
 #      analysis/output/datasets_summary.txt, datasets_compare.png, datasets_map.png
+#      analysis/output/datasets_receptor_states.csv  deaths by receiving state, per inventory
+#      analysis/output/datasets_groups.csv           exposure and deaths by race, income, poverty, education, per inventory
+#      analysis/output/datasets_inventory_matters.png
 #
 # The same rules for every dataset:
 #   capacity   facility MW (IT x 1.2 where only IT power is given; PNNL floor area
@@ -240,6 +243,78 @@ for (d in rev(ds)) { k <- which(S$dataset == d & S$status == "operating"); if (!
   p <- st_coordinates(xy[k, ]); r <- ifelse(is.na(S$mw[k]), 0.4, 0.35 + 2.2 * sqrt(S$mw[k] / max(S$mw, na.rm = TRUE)))
   points(p, pch = 21, cex = r, bg = adjustcolor(pal[d], 0.45), col = pal[d], lwd = 0.5) }
 legend("bottomleft", legend = ds, pt.bg = adjustcolor(pal[ds], 0.6), col = pal[ds], pch = 21, pt.cex = 1.4, bty = "n", cex = 0.8)
+dev.off()
+
+# ---- how much the inventory matters -------------------------------------------------------------------
+# Same chain, five public inventories. Where the deaths land (receiving state) and who breathes the
+# pollution (block-group race, income, poverty) are recomputed for each inventory's operating sites,
+# and the spread across inventories is set against the spread from the other choices in the chain.
+inv <- setdiff(unique(S$dataset), character())
+tw <- S[status == "operating" & !is.na(twh), .(twh = sum(twh)), by = .(dataset, subrgn)]
+cty <- as.data.table(st_drop_geometry(app$counties))[, .(fips, state, state_name)]
+rec <- rbindlist(lapply(inv, function(d) {
+  x <- tw[dataset == d]; f <- paste0(x$subrgn, "_avg"); ok <- f %in% colnames(app$K)
+  dd <- B_K * as.vector(app$K[, f[ok], drop = FALSE] %*% x$twh[ok])
+  cty[, .(dataset = d, state, state_name, deaths = dd)][, .(deaths = sum(deaths)), by = .(dataset, state, state_name)]
+}))
+rec[, share := deaths / sum(deaths), by = dataset]
+fwrite(rec[order(dataset, -deaths)], file.path(OUT, "datasets_receptor_states.csv"))
+grp <- if (!is.null(app$ses)) rbindlist(lapply(inv, function(d) {
+  x <- tw[dataset == d]; f <- paste0(x$subrgn, "_avg"); ok <- f %in% colnames(app$ses$exposure)
+  ex <- as.vector(app$ses$exposure[, f[ok], drop = FALSE] %*% x$twh[ok]); de <- B_K * as.vector(app$ses$mort_weighted[, f[ok], drop = FALSE] %*% x$twh[ok])
+  data.table(dataset = d, group = rownames(app$ses$exposure), label = unname(app$ses$labels), pop = unname(app$ses$pop),
+             dpm_ngm3 = ex * 1e3, ratio = ex / ex[1], deaths = de, deaths_per_million = de / unname(app$ses$pop) * 1e6)
+})) else NULL
+if (!is.null(grp)) fwrite(grp, file.path(OUT, "datasets_groups.csv"))
+
+op5 <- sm[status == "operating" & dataset %in% inv]
+say("HOW MUCH THE INVENTORY MATTERS (operating sites; same method for all)")
+say("  Deaths per year, average mix: %s", paste(sprintf("%s %.0f", sub(" \\(.*", "", op5$dataset), op5$deaths_avg), collapse = "; "))
+say("  Spread across inventories: %.0f to %.0f deaths/yr (x%.1f); CO2 %.0f to %.0f Mt (x%.1f)",
+    min(op5$deaths_avg), max(op5$deaths_avg), max(op5$deaths_avg) / min(op5$deaths_avg), min(op5$co2_mt_avg), max(op5$co2_mt_avg), max(op5$co2_mt_avg) / min(op5$co2_mt_avg))
+say("  For comparison, within one inventory: load coefficient 0.48-0.70 changes every figure x%.2f; marginal instead of average mix x%.1f-%.1f",
+    U[["high"]] / U[["low"]], min(op5$deaths_nb / op5$deaths_avg), max(op5$deaths_nb / op5$deaths_avg))
+top <- rec[, .SD[order(-deaths)][1:5], by = dataset]
+say("  Five states receiving the most deaths:")
+for (d in inv) say("    %-34s %s", d, paste(sprintf("%s %.0f%%", top[dataset == d, state], 100 * top[dataset == d, share]), collapse = ", "))
+if (!is.null(grp)) {
+  say("  Exposure relative to everyone (block groups, ACS 2019-2023):")
+  keyg <- c("Black", "Latino", "income_q1", "income_q5", "below_poverty")
+  say("    %-34s %s", "", paste(sprintf("%-15s", c("Black", "Latino", "Lowest fifth", "Highest fifth", "Below poverty")), collapse = ""))
+  for (d in inv) say("    %-34s %s", d, paste(sprintf("%-15.2f", grp[dataset == d][match(keyg, group), ratio]), collapse = ""))
+}
+
+# figure: totals, receiving states, who breathes it
+lab_of <- function(d) unname(c("Atlas of Data Center Politics" = "Atlas of DC Politics", "Epoch AI" = "Epoch AI", "Kyars Data Center Atlas" = "Kyars Atlas",
+  "PNNL IM3 (OpenStreetMap)" = "PNNL IM3", "FracTracker Data Centers Tracker" = "FracTracker")[d])
+o <- op5[order(deaths_avg)]
+png(file.path(OUT, "datasets_inventory_matters.png"), width = 2700, height = 1050, res = 200)
+layout(matrix(1:3, 1), widths = c(1, 1.25, 1.25)); par(oma = c(2.2, 0, 0, 0))
+par(mar = c(4.5, 9, 3, 1))
+b <- barplot(o$deaths_avg, horiz = TRUE, names.arg = lab_of(o$dataset), las = 1, col = pal[o$dataset], border = NA, cex.names = 0.85,
+             xlim = c(0, max(o$deaths_nb) * 1.08), xlab = "PM2.5 deaths per year", main = "A. Same method, different inventory", cex.main = 0.95)
+arrows(o$deaths_avg * U[["low"]] / U[["central"]], b, o$deaths_avg * U[["high"]] / U[["central"]], b, angle = 90, code = 3, length = 0.03)
+points(o$deaths_nb, b, pch = 4, cex = 1.1)
+legend("bottomright", c("bar: average mix", "whiskers: load 0.48-0.70", "x: marginal mix"), bty = "n", cex = 0.7)
+sts <- rec[, .(d = sum(deaths)), by = state][order(-d)][1:12, state]
+M <- dcast(rec[state %in% sts], state ~ dataset, value.var = "share"); M <- M[match(sts, M$state)]
+par(mar = c(4.5, 4, 3, 1))
+plot(NA, xlim = c(0.5, length(sts) + 0.5), ylim = c(0, max(rec$share) * 1.1), xaxt = "n", xlab = "", ylab = "Share of each inventory's deaths",
+     main = "B. Where the deaths land (receiving state)", cex.main = 0.95)
+axis(1, seq_along(sts), sts, las = 2, cex.axis = 0.85)
+for (k in seq_along(o$dataset)) { d <- o$dataset[k]; points(seq_along(sts) + (k - 3) * 0.12, M[[d]], pch = 19, col = pal[d], cex = 1.1) }
+legend("topright", lab_of(o$dataset), col = pal[o$dataset], pch = 19, bty = "n", cex = 0.75)
+if (!is.null(grp)) {
+  keyg <- c("Black", "Latino", "Native", "income_q1", "income_q3", "income_q5", "below_poverty", "no_hs_diploma")
+  kl <- c("Black", "Latino", "Native Am.", "Lowest-income\nfifth", "Middle fifth", "Highest-income\nfifth", "Below poverty", "No HS diploma")
+  par(mar = c(6.5, 4, 3, 1))
+  plot(NA, xlim = c(0.5, length(keyg) + 0.5), ylim = range(c(0.6, 1.4, grp[group %in% keyg, ratio])), xaxt = "n", xlab = "",
+       ylab = "Exposure relative to everyone", main = "C. Who breathes it (block groups)", cex.main = 0.95)
+  axis(1, seq_along(keyg), kl, las = 2, cex.axis = 0.8); abline(h = 1, lty = 2)
+  for (k in seq_along(o$dataset)) { d <- o$dataset[k]; points(seq_along(keyg) + (k - 3) * 0.12, grp[dataset == d][match(keyg, group), ratio], pch = 19, col = pal[d], cex = 1.1) }
+}
+mtext("Operating sites, electricity at u = 0.58, average eGRID2023 mix of the site's subregion, InMAP ISRM, Krewski et al. CRF. Kyars: only the 12 operating sites with a reported MW. Harvard's facility list is not public, so it is not shown.",
+      side = 1, outer = TRUE, line = 0.8, cex = 0.65)
 dev.off()
 writeLines(lines, file.path(OUT, "datasets_summary.txt"))
 msg("wrote %s", OUT)

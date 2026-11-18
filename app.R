@@ -177,8 +177,7 @@ ui <- if (is.null(app)) no_data_ui else page_navbar(
     nav_panel("Who breathes it",
       layout_columns(col_widths = c(5, 7),
         card(card_header("Where the deaths fall"), tableOutput("where_tab"),
-             card_header("Exposure by race and ethnicity"), plotOutput("grp_plot", height = 260, fill = FALSE),
-             helpText("Population-weighted PM2.5 increment, relative to the average for everyone.")),
+             card_header("Exposure by group"), uiOutput("grp_ui")),
         card(card_header("Counties with the most attributable deaths"), DTOutput("top_tab")))),
     nav_panel("Compare supply options", DTOutput("cmp_tab"),
               helpText("Same load and location under each supply option. The grid rows use the loss and carbon-free share set in the sidebar.")),
@@ -439,6 +438,32 @@ server <- function(input, output, session) {
                `Deaths per year` = sig(c(t$deaths_host_county, t$deaths_host_state - t$deaths_host_county, t$deaths - t$deaths_host_state, t$deaths), 2),
                Share = c(sprintf("%.1f%%", 100 * c(t$deaths_host_county, t$deaths_host_state - t$deaths_host_county, t$deaths - t$deaths_host_state) / t$deaths), ""),
                check.names = FALSE)
+  })
+  output$grp_ui <- renderUI({
+    if (!is.null(app$ses)) tagList(
+      radioButtons("grp_set", NULL, names(SES_SETS), inline = TRUE),
+      plotOutput("ses_plot", height = 230, fill = FALSE), tableOutput("ses_tab"),
+      helpText("Population-weighted PM2.5 increment for each group, relative to everyone in the contiguous US. ",
+               "Each of about 238,000 census block groups takes the model grid cells it overlaps (1 to 48 km), and is counted with its ",
+               "people from the American Community Survey 2019-2023. Income fifths rank block groups by median household income, ",
+               "each fifth holding a fifth of the people. Deaths use the model's baseline mortality rates."))
+    else tagList(plotOutput("grp_plot", height = 260, fill = FALSE),
+                 helpText("Population-weighted PM2.5 increment, relative to the average for everyone (model-grid populations)."))
+  })
+  ses_rows <- reactive({
+    d <- res()$ses; validate(need(!is.null(d) && d$dpm_ugm3[1] > 0, "Not available for this supply option."))
+    d[d$group %in% SES_SETS[[nz(input$grp_set, names(SES_SETS)[1])]], ]
+  })
+  output$ses_plot <- renderPlot({
+    d <- ses_rows(); r <- d$ratio
+    par(mar = c(4, 13, 1, 3)); b <- barplot(rev(r), horiz = TRUE, names.arg = rev(d$label), las = 1, col = "#2c3e50", border = NA, cex.names = 0.85,
+                                          xlab = "Exposure relative to everyone", xlim = c(0, max(1.25, max(r) * 1.12)))
+    abline(v = 1, lty = 2); text(rev(r), b, sprintf("%.2f", rev(r)), pos = 4, xpd = NA)
+  })
+  output$ses_tab <- renderTable({
+    d <- ses_rows()
+    data.frame(Group = d$label, People = fmt(d$pop), `PM2.5 increment (ng/m3)` = sig(d$dpm_ugm3 * 1e3, 3),
+               `Deaths per year` = sig(d$deaths, 2), `Deaths per million people` = sig(d$deaths_per_million, 2), check.names = FALSE)
   })
   output$grp_plot <- renderPlot({
     g <- res()$groups; validate(need(!is.null(g) && g[["Total"]] > 0, "Not available for this supply option."))

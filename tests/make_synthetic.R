@@ -8,6 +8,29 @@ cty <- st_sf(STATEFP = sprintf("%02d", c(1, 4, 5)[1 + g$i %/% 4]), GEOID = sprin
              geometry = st_sfc(Map(function(i, j) sq(-2.4e6 + i * 4e5, -1.6e6 + j * 4e5, 4e5, 4e5), g$i, g$j), crs = LCC))
 dir.create(file.path(RAW, "cb_2023_us_county_500k"), recursive = TRUE, showWarnings = FALSE)
 st_write(st_transform(cty, 4269), file.path(RAW, "cb_2023_us_county_500k", "cb.shp"), delete_dsn = FALSE, quiet = TRUE)
+# block groups: each county split into four, with made-up ACS tables in the Census .dat layout
+bgs <- do.call(rbind, lapply(seq_len(nrow(cty)), function(k) {
+  b <- st_bbox(cty[k, ]); h <- (b[["xmax"]] - b[["xmin"]]) / 2
+  st_sf(GEOID = sprintf("%s%06d%d", cty$GEOID[k], 100, 1:4), STATEFP = cty$STATEFP[k],
+        geometry = st_sfc(lapply(0:3, function(q) sq(b[["xmin"]] + (q %% 2) * h, b[["ymin"]] + (q %/% 2) * h, h, h)), crs = LCC))
+}))
+dir.create(file.path(RAW, "cb_2023_us_bg_500k"), recursive = TRUE, showWarnings = FALSE)
+st_write(st_transform(bgs, 4269), file.path(RAW, "cb_2023_us_bg_500k", "bg.shp"), delete_dsn = FALSE, quiet = TRUE)
+dir.create(file.path(RAW, "acs"), showWarnings = FALSE)
+nb <- nrow(bgs); ids <- paste0("1500000US", bgs$GEOID); r <- function(a, b) round(runif(nb, a, b))
+acs_dat <- function(tab, cols) {
+  m <- as.data.frame(cols); names(m) <- sprintf("%s_E%03d", toupper(tab), seq_along(cols))
+  moe <- m; names(moe) <- sub("_E", "_M", names(m)); moe[] <- 1
+  d <- cbind(GEO_ID = c("0100000US", ids), rbind(colSums(m), m)[, , drop = FALSE], rbind(1, moe))
+  d <- d[, c("GEO_ID", as.vector(rbind(names(m), names(moe))))]
+  fwrite(d, file.path(RAW, "acs", sprintf("acsdt5y2023-%s.dat", tab)), sep = "|")
+}
+race <- sapply(1:21, function(i) r(0, 300)); race[, 1] <- rowSums(race[, c(3:6, 12)]) + r(0, 50)
+acs_dat("b03002", lapply(seq_len(21), function(i) race[, i]))
+inc <- r(20000, 200000); inc[c(3, 9)] <- -666666666
+acs_dat("b19013", list(inc))
+pv <- sapply(1:8, function(i) r(0, 200)); pv[, 1] <- rowSums(pv[, 2:8]); acs_dat("c17002", lapply(1:8, function(i) pv[, i]))
+ed <- sapply(1:25, function(i) r(0, 40)); ed[, 1] <- rowSums(ed[, 2:25]); acs_dat("b15003", lapply(1:25, function(i) ed[, i]))
 regs <- c("CAMX", "RFCW", "SRSO")
 sr <- st_sf(ZipSubregi = regs, geometry = st_sfc(lapply(0:2, function(b) sq(-2.4e6 + b * 1.6e6, -1.6e6, 1.6e6, 3.2e6)), crs = LCC))
 dir.create(file.path(RAW, "egrid2023_subregions"), recursive = TRUE, showWarnings = FALSE)

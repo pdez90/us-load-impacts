@@ -1908,10 +1908,10 @@
   },
   "files": {
     "app.R": {
-      "checksum": "2c70d21d01210e8156c9949de9b60ed4"
+      "checksum": "319edbca1945d491f25303bbec08329b"
     },
     "data/app_data.rds": {
-      "checksum": "f32d10216866bef44786a603b32f9550"
+      "checksum": "d430f98ecf5414e12c5fa7f6ee00dd20"
     },
     "data/build_report.txt": {
       "checksum": "adc133fbc34dec589f5765d27e86af20"
@@ -1920,10 +1920,10 @@
       "checksum": "3209ce56390c55c7cc786b569b552362"
     },
     "methods.html": {
-      "checksum": "2ed73cad3323b0a3209dede88e1ac75e"
+      "checksum": "b0f035642e0e90377ece4d45f0ed4564"
     },
     "R/calc.R": {
-      "checksum": "1ab17caa0af6ae94252ba745d1481c89"
+      "checksum": "6375ebfb08548e8b6a4176720fdd21c1"
     }
   },
   "users": null

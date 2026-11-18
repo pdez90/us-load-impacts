@@ -16,5 +16,6 @@ python3 scripts/03_isrm_fields.py --isrm "$T/raw/isrm_v1.2.1.ncf" --build "$T/bu
 cmp "$T/build/isrm_source.csv" "$T/build/isrm_source_chk.csv"
 python3 tests/check_isrm.py "$T/raw" "$T/build"
 Rscript scripts/04_bake_app_data.R
+Rscript scripts/06_blockgroups.R
 Rscript tests/test_calc.R
 echo "ALL TESTS PASSED"

@@ -153,8 +153,26 @@ impact <- function(app, fips, twh, it_twh = twh, scenario = "nb", subrgn = NULL,
   county <- data.frame(fips = app$counties$fips, name = app$counties$name, state = app$counties$state,
                        pop = app$counties$pop, dpm_ugm3 = conc, deaths = d)
   groups <- if (is.null(app$groups)) NULL else if (length(w)) setNames(as.vector(app$groups[, names(w), drop = FALSE] %*% w) * gen, rownames(app$groups)) else setNames(numeric(nrow(app$groups)), rownames(app$groups))
-  list(totals = z, county = county, groups = groups, w = w, shares = g$shares)
+  list(totals = z, county = county, groups = groups, ses = ses_values(app, w, gen, beta), w = w, shares = g$shares)
 }
+
+#' Exposure and deaths by race/ethnicity, income, poverty and education, from block groups
+#' (scripts/06_blockgroups.R). NULL when app_data was built without that step.
+#' @return data.frame: group, label, pop, dpm_ugm3 (population-weighted increment), ratio (to everyone),
+#'   deaths, deaths_per_million
+ses_values <- function(app, w, gen, beta) {
+  s <- app$ses; if (is.null(s) || !length(w) || !all(names(w) %in% colnames(s$exposure))) return(NULL)
+  ex <- as.vector(s$exposure[, names(w), drop = FALSE] %*% w) * gen
+  de <- beta * as.vector(s$mort_weighted[, names(w), drop = FALSE] %*% w) * gen
+  data.frame(group = rownames(s$exposure), label = unname(s$labels[rownames(s$exposure)]), pop = unname(s$pop),
+             dpm_ugm3 = ex, ratio = if (ex[1] > 0) ex / ex[1] else NA_real_, deaths = de, deaths_per_million = de / unname(s$pop) * 1e6)
+}
+
+#' Which block-group rows go together on the exposure chart.
+SES_SETS <- list("Race and ethnicity" = c("WhiteNoLat", "Black", "Native", "Asian", "Latino"),
+                 "Household income (block-group median)" = paste0("income_q", 1:5),
+                 "Poverty" = c("below_poverty", "near_poverty", "above_2x_poverty"),
+                 "Education (adults 25+)" = c("no_hs_diploma", "bachelors_plus"))
 
 #' Increment (ug/m3) and deaths in the model's own grid cells `idx`, for a grid result `r` from impact().
 #' NULL when the cell-level fields are not stored for that mix (custom mixes).

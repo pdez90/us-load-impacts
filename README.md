@@ -43,9 +43,9 @@ Rscript analysis/02_harvard_extension.R    # -> analysis/output/
 
 Their facility list is not public, so this works from `data-raw/harvard/` (their aggregates, with the commit they came from in `SOURCE.txt`).
 
-## Comparing open data center inventories
+## Why the inventory matters
 
-`analysis/03_compare_datasets.R` runs every openly licensed US inventory through the same chain (capacity, electricity at Harvard's load coefficient 0.58, grid region, CO2, PM2.5 deaths and power-plant water) and measures how far the inventories overlap:
+`analysis/03_compare_datasets.R` runs every public US data center inventory through the same chain (capacity, electricity at Harvard's load coefficient 0.58, grid region, CO2, PM2.5 deaths and power-plant water) and measures how far the inventories overlap:
 
 ```bash
 bash scripts/01c_download_facilities.sh                              # Epoch AI, Kyars Data Center Atlas, PNNL IM3
@@ -53,9 +53,19 @@ python3 scripts/01e_epoch_coordinates.py data-raw/facilities/epoch_map_coordinat
 Rscript analysis/03_compare_datasets.R                               # -> analysis/output/datasets_*
 ```
 
+With the method held fixed, the choice of inventory changes operating-fleet PM2.5 deaths about six-fold (27 to 175 a year), more than the load coefficient range (x1.46) or switching from the average to the marginal mix (about x2). It also changes which states receive the deaths and, to a lesser degree, who breathes the pollution: `datasets_inventory_matters.png`, `datasets_receptor_states.csv` and `datasets_groups.csv`.
+
 The Atlas of Data Center Politics is used too if a copy is saved as `data-raw/facilities/adp_data_centers.geojson` (its site asks for exports to be requested rather than scripted). Atlas campuses marked operating but still listing construction or planned phases are reported as "partly built", because their capacity is the full campus build-out; crypto-mining sites are broken out in `datasets_summary.txt`.
 
 FracTracker Alliance's Open U.S. Data Centers Tracker is added with `python3 scripts/01f_download_fractracker.py`, which reads the tracker's public map layer into `data-raw/facilities/fractracker_data_centers.csv`. FracTracker shares it freely for non-commercial use with credit: *FracTracker Alliance, Open U.S. Data Centers Tracker, https://www.fractracker.org/data-centers/*. Its MW field is often a range; operating sites count the low end as running load and the rest as pipeline, and "Expanding" sites are reported as partly built.
+
+## Who breathes it, by block group
+
+`scripts/06_blockgroups.R` (after step 04) matches each of about 238,000 contiguous-US census block groups to the model grid cells it overlaps and counts its people from the ACS 2019-2023 (race and ethnicity, median household income, poverty ratio, education). It adds group exposure and death fields to `data/app_data.rds`; the app's "Who breathes it" tab and the inventory comparison use them. Needs the files from `scripts/01b_download_census.sh`.
+
+```bash
+Rscript scripts/06_blockgroups.R    # about 2 minutes
+```
 
 ## Run and deploy
 
@@ -72,7 +82,7 @@ Posit Connect Cloud: push the repo to GitHub (including `data/app_data.rds` and 
 | `app.R`, `methods.html` | the app and its methods tab |
 | `R/calc.R` | all arithmetic, free of Shiny |
 | `scripts/00_config.R` | paths, constants, assumed release heights, fallback factors |
-| `scripts/01`-`05` | the pipeline above |
+| `scripts/01`-`06` | the pipeline above |
 | `tests/` | synthetic inputs, an independent recomputation of the ISRM step, app tests |
 | `data/` | `app_data.rds` and the build report (committed) |
 | `data-raw/`, `build/` | downloads and intermediates (git-ignored) |

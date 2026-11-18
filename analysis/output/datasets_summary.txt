@@ -40,3 +40,20 @@ OVERLAP (a site counts as found if the other dataset has one within 5 km)
   FracTracker Data Centers Tracker in Kyars Data Center Atlas           47.7% of sites, 39.5% of MW
   FracTracker Data Centers Tracker in PNNL IM3 (OpenStreetMap)          43.9% of sites, 10.4% of MW
   FracTracker Data Centers Tracker in Atlas of Data Center Politics     91.2% of sites, 82.0% of MW
+HOW MUCH THE INVENTORY MATTERS (operating sites; same method for all)
+  Deaths per year, average mix: Atlas of Data Center Politics 175; Epoch AI 70; FracTracker Data Centers Tracker 78; Kyars Data Center Atlas 27; PNNL IM3 99
+  Spread across inventories: 27 to 175 deaths/yr (x6.5); CO2 9 to 76 Mt (x8.5)
+  For comparison, within one inventory: load coefficient 0.48-0.70 changes every figure x1.46; marginal instead of average mix x2.0-2.2
+  Five states receiving the most deaths:
+    Epoch AI                           TX 15%, PA 9%, OH 8%, NC 5%, VA 5%
+    Kyars Data Center Atlas            TX 28%, OH 10%, KY 10%, TN 5%, PA 4%
+    PNNL IM3 (OpenStreetMap)           TX 11%, NC 10%, PA 8%, OH 6%, VA 6%
+    Atlas of Data Center Politics      TX 18%, PA 7%, NC 7%, OH 6%, NY 5%
+    FracTracker Data Centers Tracker   TX 20%, PA 10%, OH 8%, GA 7%, VA 5%
+  Exposure relative to everyone (block groups, ACS 2019-2023):
+                                       Black          Latino         Lowest fifth   Highest fifth  Below poverty  
+    Epoch AI                           1.26           0.80           1.09           0.91           1.02           
+    Kyars Data Center Atlas            1.16           0.96           1.16           0.87           1.05           
+    PNNL IM3 (OpenStreetMap)           1.21           0.86           1.02           0.97           0.99           
+    Atlas of Data Center Politics      1.23           0.94           1.05           0.96           1.02           
+    FracTracker Data Centers Tracker   1.32           0.90           1.05           0.97           1.01           
