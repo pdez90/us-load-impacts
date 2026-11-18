@@ -1,0 +1,31 @@
+<div style="max-width: 860px">
+<h5>What the tool does</h5>
+<p>You give a load in MW and a county. The tool converts the load to annual electricity, assigns that electricity to power plants, and reports three things: CO<sub>2</sub>, the fine-particle (PM<sub>2.5</sub>) increment downwind with the deaths attributable to it, and water consumed on site and at the plants.</p>
+<h5>Electricity</h5>
+<p>Annual energy = MW &times; PUE (if the MW figure is IT or process load) &times; load factor &times; 8,760 h. The load factor is the average draw as a share of the MW entered. The 0.70 default for data centers is a starting value, not a measurement: Berkeley Lab researchers have described working with about 70% average server utilisation and a 30-80% uncertainty range, and server utilisation is not the same thing as a facility's load factor. Grid options divide by (1 &minus; transmission and distribution loss) to get generation. The default loss is EPA eGRID2023's grid gross loss for the interconnection (4.2% Eastern, 4.1% Western, 4.2% ERCOT). The carbon-free share is a user what-if with no data behind it and defaults to zero.</p>
+<h5>Which plants</h5>
+<ul>
+<li><b>Average of all plants</b>: every plant in the county's eGRID subregion, in proportion to its 2023 net generation (EPA eGRID2023).</li>
+<li><b>Plants that respond to new load (non-baseload)</b>: combustion plants in the subregion weighted by eGRID's non-baseload factor, EPA's proxy for the plants that respond when load changes. It is not a dispatch model and does not capture new capacity built to serve the load.</li>
+<li><b>A mix you set yourself</b>: fuel shares chosen by the user, starting from the subregion's current shares by each plant's primary fuel. Each fuel is represented by the subregion's existing plants of that fuel, weighted by generation, so the result shows a different balance of today's plants, not new plants in new places. Fuels supplying under 0.5% of the subregion's electricity are held fixed, because a handful of rarely-run units gives unstable per-MWh rates.</li>
+<li><b>On-site gas</b>: emission rates you enter, released in the host county.</li>
+<li><b>Carbon-free power matched every hour</b>: no operational emissions. The slider on the grid options applies the same idea to part of the load.</li>
+</ul>
+<h5>Air quality and health</h5>
+<p>Plant SO<sub>2</sub>, NO<sub>x</sub> and primary PM<sub>2.5</sub> are run through the InMAP Source-Receptor Matrix (ISRM v1.2.1; Goodkind et al. 2019, PNAS 116:8775), which gives the annual-average PM<sub>2.5</sub> change in 52,411 receptor cells per unit of emissions in each source cell. Pathways used: primary PM<sub>2.5</sub>, sulfate from SO<sub>2</sub>, nitrate from NO<sub>x</sub>. Each plant's emissions are split between the two ISRM release layers that bracket an assumed effective release height by fuel. Cells are aggregated to counties by overlapping area. The map shows counties when zoomed out and the model's own cells (1 km in dense cities, up to 48 km in rural areas) when zoomed in; that grid is the finest scale the model supports.</p>
+<p>Deaths = &beta; &times; &Delta;PM<sub>2.5</sub> &times; population &times; baseline all-cause mortality, summed over cells, with the population and mortality fields carried in the ISRM file. The relation is linear here because the increments are small. Two concentration-response functions are offered.</p>
+<h5>Water</h5>
+<p>On site: litres per kWh of IT or process energy, as entered. At power plants: plant-level cooling water consumption and withdrawal reported to EIA (2023) where available, otherwise typical consumption factors by fuel. Hydropower reservoir evaporation is excluded.</p>
+<h5>Limits to keep in mind</h5>
+<ul>
+<li>The ISRM uses 2005 meteorology and background chemistry and census population from around 2010. Nitrate and sulfate formation per tonne has changed as background emissions fell.</li>
+<li>eGRID has no stack data, so release heights are assumed by fuel category. Height choices move national totals by roughly ten percent in published ISRM comparisons.</li>
+<li>Plant PM<sub>2.5</sub> comes from EPA's draft unit-level file (2021 rates applied to 2023 heat input) or, where missing, from emission factors. See the build report below for coverage.</li>
+<li>The mixes are annual. Hourly marginal emissions, imports between subregions, and capacity added for the load are not represented.</li>
+<li>EPA's guidance is to use total-output (average) rates for footprints and inventories and non-baseload rates for rough estimates of emission changes from changes in electricity use.</li>
+<li>Counties are assigned to the eGRID subregion that contains them; real utility territories overlap. Override the region if you know the serving utility.</li>
+<li>On-site generation reports totals only. It uses the model grid cell that contains the site when a latitude and longitude are given, and the cell at the county's interior point otherwise.</li>
+<li>Ozone, NH<sub>3</sub> and VOC pathways, backup diesel generators, construction, and upstream fuel-cycle emissions are not included.</li>
+<li>Alaska, Hawaii and Puerto Rico are outside the ISRM domain.</li>
+</ul>
+</div>

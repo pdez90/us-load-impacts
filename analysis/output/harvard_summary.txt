@@ -1,0 +1,14 @@
+REPRODUCTION (central scenario, u = 0.58, 23 balancing authorities, 403 facilities)
+  Electricity: 81.76 TWh.  CO2: theirs 25.67 Mt, ours 25.67 Mt (difference 0.000%); largest BA difference 0.000%.
+EXTENSION (same electricity and attribution)
+  Plant emissions attributed: SO2 11318 t, NOx 13360 t, primary PM2.5 1649 t per year.
+  PM2.5 deaths per year: 64 (Krewski RR 1.06) to 144 (Lepeule RR 1.14); 0.78 per TWh at Krewski.
+  Power-plant water: 87 GL consumed (23.0 billion gal), 2910 GL withdrawn (769 billion gal) per year.
+  Across their load scenarios (u 0.48-0.70): 53-77 deaths (Krewski), 72-105 GL consumed.
+  With a 4.2% transmission-loss gross-up (not in their method) every figure above is 4.4% higher.
+  Population-weighted mean increment 4.41 ng/m3; highest cell 212.9 ng/m3.
+  Exposure relative to the average: WhiteNoLat 1.03, Black 1.20, Native 0.70, Asian 0.96, Latino 0.75 (ISRM census populations).
+  Deaths assigned to a county: 64.0 of 64.0 (the rest are in cells with no county overlap).
+  Most deaths by state: PA 10, NY 5, TX 5, OH 4, NJ 4, MD 4, VA 4, IL 3.
+  Deaths in states with no hyperscale facility in their data: 23 (35%).
+  Most deaths by BA: PJM 34, MISO 9, SWPP 7, ERCO 4, TVA 2, DUK 1.

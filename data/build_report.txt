@@ -1,0 +1,16 @@
+eGRID: 12329 contiguous-US plants in 22 subregions; net generation 4158 TWh; CO2 1438 Mt
+PM2.5: plant rates from the eGRID 2021 file cover 98.6% of combustion heat input; emission factors the rest
+Emissions (kt): SO2 634, NOx 789, primary PM2.5 96
+Water: EIA plant data cover 90.4% of thermal generation; fuel factors the rest
+eGRID grid gross loss: Alaska 4.1%, ERCOT 4.2%, Eastern 4.2%, Hawaii 4.4%, Western 4.1%, U.S. 4.2%
+CO2 rate vs eGRID subregion table: average mix max |diff| 0.00%; non-baseload max |diff| 0.00%
+plants without coordinates carry 0.000% of SO2+NOx+PM2.5 (dropped from the air-quality fields)
+3109 contiguous-US counties
+52411 cells, 158 fields, population 307.1 million
+26 populated cells touch no county polygon (0.000% of population): assigned to the nearest county
+3109 of 3109 counties carry ISRM population; 0 have no overlapping cell
+county mortality weights vs cell-level totals: max relative difference 6.18e-07
+county -> subregion: 3108 by containment, 1 by nearest polygon; 22 subregions used of 22
+per-cell source weights for on-site power: 52411 cells
+cell sizes (km): 1: 19176, 2: 4558, 4: 13502, 12: 3796, 24: 3203, 48: 8176
+All contiguous-US generation in the data year: 4158 TWh, 3681 PM2.5 deaths/yr at Krewski (RR 1.06 per 10 ug/m3)

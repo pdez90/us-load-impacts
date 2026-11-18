@@ -1,0 +1,8 @@
+data-raw/
+build/
+.Rproj.user/
+.Rhistory
+.RData
+.DS_Store
+__pycache__/
+rsconnect/
