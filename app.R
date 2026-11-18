@@ -442,7 +442,7 @@ server <- function(input, output, session) {
   output$grp_ui <- renderUI({
     if (!is.null(app$ses)) tagList(
       radioButtons("grp_set", NULL, names(SES_SETS), inline = TRUE),
-      plotOutput("ses_plot", height = 230, fill = FALSE), tableOutput("ses_tab"),
+      plotOutput("ses_plot", height = 260, fill = FALSE), tableOutput("ses_tab"),
       helpText("Population-weighted PM2.5 increment for each group, relative to everyone in the contiguous US. ",
                "Each of about 238,000 census block groups takes the model grid cells it overlaps (1 to 48 km), and is counted with its ",
                "people from the American Community Survey 2019-2023. Income fifths rank block groups by median household income, ",
@@ -455,10 +455,13 @@ server <- function(input, output, session) {
     d[d$group %in% SES_SETS[[nz(input$grp_set, names(SES_SETS)[1])]], ]
   })
   output$ses_plot <- renderPlot({
-    d <- ses_rows(); r <- d$ratio
-    par(mar = c(4, 13, 1, 3)); b <- barplot(rev(r), horiz = TRUE, names.arg = rev(d$label), las = 1, col = "#2c3e50", border = NA, cex.names = 0.85,
-                                          xlab = "Exposure relative to everyone", xlim = c(0, max(1.25, max(r) * 1.12)))
-    abline(v = 1, lty = 2); text(rev(r), b, sprintf("%.2f", rev(r)), pos = 4, xpd = NA)
+    d <- ses_rows(); r <- rev(d$ratio); lab <- rev(d$label); n <- length(r)
+    # labels sit above each bar, so the chart works at any width
+    par(mar = c(4, 1, 0.5, 1)); xm <- max(1.3, max(r) * 1.15)
+    plot(NA, xlim = c(0, xm), ylim = c(0.4, n + 0.6), yaxt = "n", ylab = "", xlab = "Exposure relative to everyone", bty = "n")
+    y <- seq_len(n); rect(0, y - 0.38, r, y - 0.02, col = "#2c3e50", border = NA)
+    text(0, y + 0.2, lab, adj = 0, cex = 0.85, xpd = NA); text(r, y - 0.2, sprintf("%.2f", r), pos = 4, cex = 0.85, xpd = NA)
+    abline(v = 1, lty = 2)
   })
   output$ses_tab <- renderTable({
     d <- ses_rows()
