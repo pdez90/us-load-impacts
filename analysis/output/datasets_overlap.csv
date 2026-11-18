@@ -2,12 +2,20 @@ dataset,found_in,sites,share_sites,share_mw
 Epoch AI,Kyars Data Center Atlas,77,0.649350649350649,0.779896920280255
 Epoch AI,PNNL IM3 (OpenStreetMap),77,0.493506493506494,0.361728255685628
 Epoch AI,Atlas of Data Center Politics,77,1,1
+Epoch AI,FracTracker Data Centers Tracker,77,0.922077922077922,0.967537030594448
 Kyars Data Center Atlas,Epoch AI,435,0.174712643678161,0.25008356545961
 Kyars Data Center Atlas,PNNL IM3 (OpenStreetMap),435,0.466666666666667,0.0552367688022284
 Kyars Data Center Atlas,Atlas of Data Center Politics,435,0.935632183908046,0.84594243268338
-PNNL IM3 (OpenStreetMap),Epoch AI,1236,0.207928802588997,0.323954558923434
+Kyars Data Center Atlas,FracTracker Data Centers Tracker,435,0.754022988505747,0.751142061281337
+PNNL IM3 (OpenStreetMap),Epoch AI,1236,0.207928802588997,0.323954558923435
 PNNL IM3 (OpenStreetMap),Kyars Data Center Atlas,1236,0.559061488673139,0.636502338574169
 PNNL IM3 (OpenStreetMap),Atlas of Data Center Politics,1236,0.973300970873786,0.996134942347343
+PNNL IM3 (OpenStreetMap),FracTracker Data Centers Tracker,1236,0.756472491909385,0.821538194812199
 Atlas of Data Center Politics,Epoch AI,3577,0.103718199608611,0.130402664780486
-Atlas of Data Center Politics,Kyars Data Center Atlas,3577,0.411797595750629,0.352928097073769
+Atlas of Data Center Politics,Kyars Data Center Atlas,3577,0.411797595750629,0.35292809707377
 Atlas of Data Center Politics,PNNL IM3 (OpenStreetMap),3577,0.460721274811294,0.176154738788015
+Atlas of Data Center Politics,FracTracker Data Centers Tracker,3577,0.613642717360917,0.722692180628308
+FracTracker Data Centers Tracker,Epoch AI,1577,0.171211160431198,0.136461258729411
+FracTracker Data Centers Tracker,Kyars Data Center Atlas,1577,0.476854787571338,0.395234695360047
+FracTracker Data Centers Tracker,PNNL IM3 (OpenStreetMap),1577,0.438807863031072,0.103619499471009
+FracTracker Data Centers Tracker,Atlas of Data Center Politics,1577,0.912492073557388,0.820357181515123

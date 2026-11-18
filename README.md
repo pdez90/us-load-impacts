@@ -55,6 +55,8 @@ Rscript analysis/03_compare_datasets.R                               # -> analys
 
 The Atlas of Data Center Politics is used too if a copy is saved as `data-raw/facilities/adp_data_centers.geojson` (its site asks for exports to be requested rather than scripted). Atlas campuses marked operating but still listing construction or planned phases are reported as "partly built", because their capacity is the full campus build-out; crypto-mining sites are broken out in `datasets_summary.txt`.
 
+FracTracker Alliance's Open U.S. Data Centers Tracker is added with `python3 scripts/01f_download_fractracker.py`, which reads the tracker's public map layer into `data-raw/facilities/fractracker_data_centers.csv`. FracTracker shares it freely for non-commercial use with credit: *FracTracker Alliance, Open U.S. Data Centers Tracker, https://www.fractracker.org/data-centers/*. Its MW field is often a range; operating sites count the low end as running load and the rest as pipeline, and "Expanding" sites are reported as partly built.
+
 ## Run and deploy
 
 ```r

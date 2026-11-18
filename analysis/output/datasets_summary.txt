@@ -4,6 +4,9 @@ US DATA CENTER INVENTORIES THROUGH ONE IMPACT CHAIN (u = 0.58; no transmission-l
   Atlas of Data Center Politics        pipeline   1421 sites (1002 with MW)   386.7 GW  1964.8 TWh  CO2 681.1 Mt (avg) / 1279.9 (marginal)  deaths  1684 /  3532  water  2035 GL
   Epoch AI                             operating    60 sites (  60 with MW)    16.2 GW    82.3 TWh  CO2  29.4 Mt (avg) /  55.2 (marginal)  deaths    70 /   149  water    84 GL
   Epoch AI                             pipeline     43 sites (  43 with MW)    27.2 GW   138.2 TWh  CO2  50.6 Mt (avg) /  90.8 (marginal)  deaths   123 /   256  water   147 GL
+  FracTracker Data Centers Tracker     operating   534 sites ( 207 with MW)    18.2 GW    92.4 TWh  CO2  33.3 Mt (avg) /  61.2 (marginal)  deaths    78 /   164  water   100 GL
+  FracTracker Data Centers Tracker     partly built    69 sites (  31 with MW)    20.3 GW   103.2 TWh  CO2  36.6 Mt (avg) /  68.7 (marginal)  deaths    99 /   209  water   105 GL
+  FracTracker Data Centers Tracker     pipeline    993 sites ( 422 with MW)   290.9 GW  1477.8 TWh  CO2 518.8 Mt (avg) / 995.8 (marginal)  deaths  1266 /  2676  water  1532 GL
   Kyars Data Center Atlas              operating   190 sites (  12 with MW)     4.9 GW    24.7 TWh  CO2   9.0 Mt (avg) /  16.4 (marginal)  deaths    27 /    54  water    20 GL
   Kyars Data Center Atlas              pipeline    256 sites (  76 with MW)   102.8 GW   522.5 TWh  CO2 188.4 Mt (avg) / 335.3 (marginal)  deaths   462 /   965  water   516 GL
   PNNL IM3 (OpenStreetMap)             operating  1238 sites (1238 with MW)    28.5 GW   144.7 TWh  CO2  47.1 Mt (avg) /  94.5 (marginal)  deaths    99 /   219  water   141 GL
@@ -12,16 +15,28 @@ ATLAS OF DATA CENTER POLITICS, OPERATING SITES BY KIND (u = 0.58)
   100 MW and over      151 sites ( 117 with MW)   25.9 GW  131.4 TWh  deaths  106 (avg)
   crypto mining         64 sites (  58 with MW)    2.1 GW   10.6 TWh  deaths    9 (avg)
   under 100 MW        1891 sites (1585 with MW)   16.0 GW   81.3 TWh  deaths   61 (avg)
+FRACTRACKER DATA CENTERS TRACKER, OPERATING SITES BY KIND (u = 0.58)
+  100 MW and over       39 sites (  39 with MW)   14.3 GW   72.8 TWh  deaths   65 (avg)
+  crypto mining          7 sites (   6 with MW)    0.9 GW    4.4 TWh  deaths    3 (avg)
+  under 100 MW         488 sites ( 162 with MW)    3.0 GW   15.2 TWh  deaths   10 (avg)
 OVERLAP (a site counts as found if the other dataset has one within 5 km)
-  Epoch AI                     in Kyars Data Center Atlas       64.9% of sites, 78.0% of MW
-  Epoch AI                     in PNNL IM3 (OpenStreetMap)      49.4% of sites, 36.2% of MW
-  Epoch AI                     in Atlas of Data Center Politics 100.0% of sites, 100.0% of MW
-  Kyars Data Center Atlas      in Epoch AI                      17.5% of sites, 25.0% of MW
-  Kyars Data Center Atlas      in PNNL IM3 (OpenStreetMap)      46.7% of sites,  5.5% of MW
-  Kyars Data Center Atlas      in Atlas of Data Center Politics  93.6% of sites, 84.6% of MW
-  PNNL IM3 (OpenStreetMap)     in Epoch AI                      20.8% of sites, 32.4% of MW
-  PNNL IM3 (OpenStreetMap)     in Kyars Data Center Atlas       55.9% of sites, 63.7% of MW
-  PNNL IM3 (OpenStreetMap)     in Atlas of Data Center Politics  97.3% of sites, 99.6% of MW
-  Atlas of Data Center Politics in Epoch AI                      10.4% of sites, 13.0% of MW
-  Atlas of Data Center Politics in Kyars Data Center Atlas       41.2% of sites, 35.3% of MW
-  Atlas of Data Center Politics in PNNL IM3 (OpenStreetMap)      46.1% of sites, 17.6% of MW
+  Epoch AI                         in Kyars Data Center Atlas           64.9% of sites, 78.0% of MW
+  Epoch AI                         in PNNL IM3 (OpenStreetMap)          49.4% of sites, 36.2% of MW
+  Epoch AI                         in Atlas of Data Center Politics    100.0% of sites, 100.0% of MW
+  Epoch AI                         in FracTracker Data Centers Tracker  92.2% of sites, 96.8% of MW
+  Kyars Data Center Atlas          in Epoch AI                          17.5% of sites, 25.0% of MW
+  Kyars Data Center Atlas          in PNNL IM3 (OpenStreetMap)          46.7% of sites,  5.5% of MW
+  Kyars Data Center Atlas          in Atlas of Data Center Politics     93.6% of sites, 84.6% of MW
+  Kyars Data Center Atlas          in FracTracker Data Centers Tracker  75.4% of sites, 75.1% of MW
+  PNNL IM3 (OpenStreetMap)         in Epoch AI                          20.8% of sites, 32.4% of MW
+  PNNL IM3 (OpenStreetMap)         in Kyars Data Center Atlas           55.9% of sites, 63.7% of MW
+  PNNL IM3 (OpenStreetMap)         in Atlas of Data Center Politics     97.3% of sites, 99.6% of MW
+  PNNL IM3 (OpenStreetMap)         in FracTracker Data Centers Tracker  75.6% of sites, 82.2% of MW
+  Atlas of Data Center Politics    in Epoch AI                          10.4% of sites, 13.0% of MW
+  Atlas of Data Center Politics    in Kyars Data Center Atlas           41.2% of sites, 35.3% of MW
+  Atlas of Data Center Politics    in PNNL IM3 (OpenStreetMap)          46.1% of sites, 17.6% of MW
+  Atlas of Data Center Politics    in FracTracker Data Centers Tracker  61.4% of sites, 72.3% of MW
+  FracTracker Data Centers Tracker in Epoch AI                          17.1% of sites, 13.6% of MW
+  FracTracker Data Centers Tracker in Kyars Data Center Atlas           47.7% of sites, 39.5% of MW
+  FracTracker Data Centers Tracker in PNNL IM3 (OpenStreetMap)          43.9% of sites, 10.4% of MW
+  FracTracker Data Centers Tracker in Atlas of Data Center Politics     91.2% of sites, 82.0% of MW

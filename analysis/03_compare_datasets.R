@@ -7,6 +7,7 @@
 #        kyars_projects.csv
 #        pnnl_im3_data_center_locations.gpkg
 #        adp_data_centers.geojson           (optional: Atlas of Data Center Politics)
+#        fractracker_data_centers.csv       (optional: scripts/01f_download_fractracker.py)
 #      data-raw/harvard/data_BA_level.csv   (reference total)
 #      data-raw/egrid2023_subregions/, data/app_data.rds
 # Out: analysis/output/datasets_sites.csv       every site, harmonised, with its impacts
@@ -116,7 +117,37 @@ read_adp <- function() {
              mw_basis = fifelse(is.na(mw), "size class only", fifelse(cls == "partly built", "reported campus capacity (includes unbuilt phases)", "reported capacity")))[status != "dropped"]
 }
 
-S <- rbindlist(Filter(Negate(is.null), list(read_epoch(), read_kyars(), read_pnnl(), read_adp())), fill = TRUE)
+# ---- 5. FracTracker Open U.S. Data Centers Tracker (scripts/01f_download_fractracker.py) -------------
+read_fractracker <- function() {
+  # The "mw" text holds one figure or a range ("450-3,300"). For an operating site the low end is taken
+  # as running load and the rest of the range as build-out (pipeline); "Expanding" sites are kept apart
+  # as "partly built" at the high end, like the Atlas; cancelled and suspended sites are dropped.
+  f <- file.path(FAC, "fractracker_data_centers.csv"); if (!file.exists(f)) return(NULL)
+  d <- fread(f, colClasses = "character", encoding = "UTF-8")
+  d <- d[!nzchar(trimws(delete_dup))]
+  rng <- function(x, end) {                                    # parse "a", "a-b", "1,000", "500?" -> low or high
+    x <- gsub("[,?~ ]|MW", "", x, ignore.case = TRUE); p <- strsplit(x, "[-\u2013]")
+    vapply(p, function(v) { v <- num(v); v <- v[is.finite(v)]; if (!length(v)) NA_real_ else if (end == "low") min(v) else max(v) }, 0)
+  }
+  lo <- rng(d$mw, "low"); hi <- rng(d$mw, "high")
+  lo <- fifelse(is.na(lo), num(d$mw_low), lo); hi <- fifelse(is.na(hi), num(d$mw_high), hi); lo <- pmin(lo, hi)
+  st <- tolower(trimws(d$status))
+  cls <- fifelse(st == "operating", "operating", fifelse(st == "expanding", "partly built",
+         fifelse(st %in% c("proposed", "pre-proposal", "approved/permitted/under construction"), "pipeline", "dropped")))
+  crypto <- grepl("crypto|bitcoin", paste(d$purpose, d$operator_name), ignore.case = TRUE)
+  b <- data.table(dataset = "FracTracker Data Centers Tracker", site = trimws(d$facility_name), lon = num(d$long), lat = num(d$lat),
+                  cls, lo, hi, operator_type = fifelse(crypto, "Crypto", NA_character_))[cls != "dropped"]
+  rbind(b[cls == "operating", .(dataset, site, lon, lat, status = "operating", mw = lo, operator_type,
+                               mw_basis = fifelse(is.na(lo), "not reported", "reported MW (low end of range)"))],
+        b[cls == "operating" & hi > lo, .(dataset, site, lon, lat, status = "pipeline", mw = hi - lo, operator_type,
+                                          mw_basis = "reported MW range beyond low end")],
+        b[cls == "partly built", .(dataset, site, lon, lat, status = "partly built", mw = hi, operator_type,
+                                  mw_basis = fifelse(is.na(hi), "not reported", "reported MW (expanding; high end)"))],
+        b[cls == "pipeline", .(dataset, site, lon, lat, status = "pipeline", mw = hi, operator_type,
+                              mw_basis = fifelse(is.na(hi), "not reported", "reported planned MW (high end)"))])
+}
+
+S <- rbindlist(Filter(Negate(is.null), list(read_epoch(), read_kyars(), read_pnnl(), read_adp(), read_fractracker())), fill = TRUE)
 S <- S[is.finite(lon) & is.finite(lat)]
 
 # ---- grid region of each site ---------------------------------------------------------------------
@@ -160,11 +191,12 @@ for (i in seq_len(nrow(sm))) with(sm[i], say("  %-36s %-9s %5d sites (%4d with M
                                            dataset, status, sites, sites_with_mw, gw, twh, co2_mt_avg, ifelse(is.na(co2_mt_nb), "-", sprintf("%.1f", co2_mt_nb)),
                                            deaths_avg, ifelse(is.na(deaths_nb), "-", sprintf("%.0f", deaths_nb)), water_GL_avg))
 
-# ---- Atlas of Data Center Politics: where the operating MW sit ----------------------------------------
-A <- S[dataset == "Atlas of Data Center Politics" & status == "operating"]
-if (nrow(A)) {
-  say("ATLAS OF DATA CENTER POLITICS, OPERATING SITES BY KIND (u = %.2f)", U[["central"]])
-  A[, kind := fifelse(operator_type %in% "Crypto", "crypto mining", fifelse(size_class %in% c("hyperscale", "gigascale"), "100 MW and over", "under 100 MW"))]
+# ---- Atlas and FracTracker: where the operating MW sit -------------------------------------------------
+for (dn in c("Atlas of Data Center Politics", "FracTracker Data Centers Tracker")) {
+  A <- S[dataset == dn & status == "operating"]; if (!nrow(A)) next
+  say("%s, OPERATING SITES BY KIND (u = %.2f)", toupper(dn), U[["central"]])
+  big <- if ("size_class" %in% names(A) && any(!is.na(A$size_class))) A$size_class %in% c("hyperscale", "gigascale") else fcoalesce(A$mw, 0) >= 100
+  A[, kind := fifelse(operator_type %in% "Crypto", "crypto mining", fifelse(big, "100 MW and over", "under 100 MW"))]
   for (r in split(A, A$kind)) say("  %-18s %5d sites (%4d with MW) %6.1f GW %6.1f TWh  deaths %4.0f (avg)",
                                   r$kind[1], nrow(r), sum(!is.na(r$mw)), sum(r$mw, na.rm = TRUE) / 1e3, sum(r$twh, na.rm = TRUE), sum(r$deaths_avg, na.rm = TRUE))
 }
@@ -183,20 +215,21 @@ ov <- rbindlist(lapply(ds, function(a) rbindlist(lapply(setdiff(ds, a), function
 }))))
 fwrite(ov, file.path(OUT, "datasets_overlap.csv"))
 say("OVERLAP (a site counts as found if the other dataset has one within 5 km)")
-for (i in seq_len(nrow(ov))) with(ov[i], say("  %-28s in %-28s %5.1f%% of sites, %5s of MW", dataset, found_in, 100 * share_sites, ifelse(is.na(share_mw), "-", sprintf("%.1f%%", 100 * share_mw))))
+for (i in seq_len(nrow(ov))) with(ov[i], say("  %-32s in %-32s %5.1f%% of sites, %5s of MW", dataset, found_in, 100 * share_sites, ifelse(is.na(share_mw), "-", sprintf("%.1f%%", 100 * share_mw))))
 
 # ---- figures --------------------------------------------------------------------------------------
 pal <- c("Epoch AI" = "#e67e22", "Kyars Data Center Atlas" = "#2980b9", "PNNL IM3 (OpenStreetMap)" = "#27ae60",
-         "Atlas of Data Center Politics" = "#8e44ad", "Harvard (Guidi et al.), reference" = "#2c3e50")
+         "Atlas of Data Center Politics" = "#8e44ad", "FracTracker Data Centers Tracker" = "#c0392b", "Harvard (Guidi et al.), reference" = "#2c3e50")
 op <- sm[status == "operating"]; op[, lab := c("Atlas of Data Center Politics" = "Atlas of DC\nPolitics", "Epoch AI" = "Epoch AI", "Kyars Data Center Atlas" = "Kyars Atlas",
-  "PNNL IM3 (OpenStreetMap)" = "PNNL IM3", "Harvard (Guidi et al.), reference" = "Harvard\n(reference)")[dataset]]
+  "PNNL IM3 (OpenStreetMap)" = "PNNL IM3", "FracTracker Data Centers Tracker" = "FracTracker", "Harvard (Guidi et al.), reference" = "Harvard\n(reference)")[dataset]]
 png(file.path(OUT, "datasets_compare.png"), width = 2400, height = 1000, res = 200)
-par(mfrow = c(1, 4), mar = c(7, 4.5, 3, 1), oma = c(2, 0, 0, 0), mgp = c(3, 0.6, 0))
+par(mfrow = c(1, 4), mar = c(7, 4.5, 3, 1), oma = c(2.5, 0, 0, 0), mgp = c(3, 0.6, 0))
 for (v in list(c("twh", "Electricity (TWh/yr)"), c("co2_mt_avg", "CO2, average mix (Mt/yr)"), c("deaths_avg", "PM2.5 deaths, average mix (/yr)"), c("water_GL_avg", "Power-plant water (GL/yr)"))) {
   y <- op[[v[1]]]; b <- barplot(y, names.arg = op$lab, las = 2, mgp = c(3, 0.4, 0), col = pal[op$dataset], border = NA, main = v[2], cex.names = 0.85, cex.main = 0.95, ylim = c(0, max(y, na.rm = TRUE) * 1.15))
   text(b, y, formatC(y, format = "fg", digits = 3, big.mark = ","), pos = 3, cex = 0.8, xpd = NA)
 }
-mtext("Operating sites only, u = 0.58. Atlas: fully operational sites (partly built campuses excluded). Kyars: only sites with a reported operational MW. PNNL: MW estimated from floor area.", side = 1, outer = TRUE, line = 0.8, cex = 0.7)
+mtext(c("Operating sites only, u = 0.58. Atlas and FracTracker: partly built / expanding campuses excluded; FracTracker MW = low end of reported range.",
+        "Kyars: only sites with a reported operational MW. PNNL: MW estimated from floor area."), side = 1, outer = TRUE, line = c(-0.2, 0.8), cex = 0.7)
 dev.off()
 png(file.path(OUT, "datasets_map.png"), width = 2200, height = 1400, res = 220)
 par(mar = c(0.5, 0.5, 2, 0.5)); us <- st_transform(st_union(sr[!(sr$subrgn %in% NON_CONUS), ]), LCC)
