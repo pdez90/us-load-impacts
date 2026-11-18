@@ -156,7 +156,7 @@ ui <- if (is.null(app)) no_data_ui else page_navbar(
     downloadButton("dl", "County results (CSV)"),
     if (has_cells) downloadButton("dl_cells", "Grid-cell results (CSV)")
   ),
-  layout_columns(fill = FALSE, col_widths = c(3, 3, 3, 3),
+  layout_columns(fill = FALSE, col_widths = breakpoints(sm = c(6, 6, 6, 6), xxl = c(3, 3, 3, 3)),   # two per row until the window is wide
     value_box("Electricity", textOutput("vb_twh"), textOutput("vb_twh_sub"), theme = "primary"),
     value_box("CO2", textOutput("vb_co2"), textOutput("vb_co2_sub"), theme = "secondary"),
     value_box("PM2.5 deaths", textOutput("vb_deaths"), textOutput("vb_deaths_sub"), theme = "danger"),
