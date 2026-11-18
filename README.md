@@ -43,6 +43,18 @@ Rscript analysis/02_harvard_extension.R    # -> analysis/output/
 
 Their facility list is not public, so this works from `data-raw/harvard/` (their aggregates, with the commit they came from in `SOURCE.txt`).
 
+## Comparing open data center inventories
+
+`analysis/03_compare_datasets.R` runs every openly licensed US inventory through the same chain (capacity, electricity at Harvard's load coefficient 0.58, grid region, CO2, PM2.5 deaths and power-plant water) and measures how far the inventories overlap:
+
+```bash
+bash scripts/01c_download_facilities.sh                              # Epoch AI, Kyars Data Center Atlas, PNNL IM3
+python3 scripts/01e_epoch_coordinates.py data-raw/facilities/epoch_map_coordinates.csv
+Rscript analysis/03_compare_datasets.R                               # -> analysis/output/datasets_*
+```
+
+The Atlas of Data Center Politics is used too if a copy is saved as `data-raw/facilities/adp_data_centers.geojson` (its site asks for exports to be requested rather than scripted).
+
 ## Run and deploy
 
 ```r
