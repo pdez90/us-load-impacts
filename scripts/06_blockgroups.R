@@ -1,5 +1,5 @@
 # =============================================================================
-# 06_blockgroups.R  --  who breathes it, at block-group resolution
+# 06_blockgroups.R  --  who is exposed, at block-group resolution
 # -----------------------------------------------------------------------------
 # In : build/isrm_cells.csv                          (03: ISRM receptor cells, all fields)
 #      data-raw/cb_2023_us_bg_500k/                  (01b: 2023 block-group boundaries)

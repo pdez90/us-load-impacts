@@ -66,7 +66,7 @@ hv_ui <- function() {
           tags$tr(tags$td("2. Which plants supply it"), tags$td("Every plant in the facility's balancing authority, in proportion to its generation (EPA eGRID2023)"), tags$td("Same rule, rebuilt from eGRID2023 plant records")),
           tags$tr(tags$td("3. CO2"), tags$td("Yes"), tags$td(strong("Reproduced"), " (compared below)")),
           tags$tr(class = "table-success", tags$td("4. SO2, NOx and PM2.5 from those plants"), tags$td("No"), tags$td(strong("Added here"))),
-          tags$tr(class = "table-success", tags$td("5. PM2.5 downwind and who breathes it"), tags$td("No"), tags$td(strong("Added here"), ": InMAP Source-Receptor Matrix")),
+          tags$tr(class = "table-success", tags$td("5. PM2.5 downwind and who is exposed"), tags$td("No"), tags$td(strong("Added here"), ": InMAP Source-Receptor Matrix")),
           tags$tr(class = "table-success", tags$td("6. Deaths attributable to that PM2.5"), tags$td("No"), tags$td(strong("Added here"))),
           tags$tr(class = "table-success", tags$td("7. Water used by the power plants"), tags$td("No"), tags$td(strong("Added here"), ": EIA plant cooling data"))))),
     layout_columns(fill = FALSE, col_widths = c(4, 8),
@@ -169,19 +169,19 @@ ui <- if (is.null(app)) no_data_ui else page_navbar(
               leafletOutput("map", height = 600)),
     nav_panel("Power sources",
       layout_columns(col_widths = c(6, 6),
-        card(card_header("The options, in plain words"), uiOutput("options_help")),
+        card(card_header("About each supply option"), uiOutput("options_help")),
         card(card_header(textOutput("mix_title", inline = TRUE)), plotOutput("mix_plot", height = 190, fill = FALSE), tableOutput("mix_tab"),
              uiOutput("mix_note"))),
       card(card_header("Largest plants in this mix"), DTOutput("plant_tab"),
            helpText("Share is the fraction of each MWh the plant supplies under the selected grid option. Emissions are the plant's totals for the data year."))),
-    nav_panel("Who breathes it",
+    nav_panel("Who is exposed",
       layout_columns(col_widths = c(5, 7),
         card(card_header("Where the deaths fall"), tableOutput("where_tab"),
              card_header("Exposure by group"), uiOutput("grp_ui")),
         card(card_header("Counties with the most attributable deaths"), DTOutput("top_tab")))),
     nav_panel("Compare supply options", DTOutput("cmp_tab"),
               helpText("Same load and location under each supply option. The grid rows use the loss and carbon-free share set in the sidebar.")),
-    nav_panel("Methods and limits", includeHTML("methods.html"), h5("Build report"), verbatimTextOutput("qa"))
+    nav_panel("Methods and limitations", includeHTML("methods.html"), h5("Build report"), verbatimTextOutput("qa"))
   ))),
   nav_panel("Harvard replication", hv_ui())
 )
@@ -431,7 +431,7 @@ server <- function(input, output, session) {
               caption = sprintf("%s, %s", region_label(region()), names(SCENARIOS)[match(plant_mix(), SCENARIOS)]))
   })
 
-  # ---- who breathes it ------------------------------------------------------------------------
+  # ---- who is exposed ------------------------------------------------------------------------
   output$where_tab <- renderTable({
     t <- res()$totals; h <- host(); validate(need(!is.na(t$deaths_host_county), "Not available for this supply option."))
     data.frame(Where = c(paste0(h$name, ", ", h$state, " (host county)"), paste0("Rest of ", h$state), "Other states", "Total"),

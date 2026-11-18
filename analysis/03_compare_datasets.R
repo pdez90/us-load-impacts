@@ -246,7 +246,7 @@ legend("bottomleft", legend = ds, pt.bg = adjustcolor(pal[ds], 0.6), col = pal[d
 dev.off()
 
 # ---- how much the inventory matters -------------------------------------------------------------------
-# Same chain, five public inventories. Where the deaths land (receiving state) and who breathes the
+# Same chain, five public inventories. Where the deaths land (receiving state) and who is exposed to the
 # pollution (block-group race, income, poverty) are recomputed for each inventory's operating sites,
 # and the spread across inventories is set against the spread from the other choices in the chain.
 inv <- setdiff(unique(S$dataset), character())
@@ -284,7 +284,7 @@ if (!is.null(grp)) {
   for (d in inv) say("    %-34s %s", d, paste(sprintf("%-15.2f", grp[dataset == d][match(keyg, group), ratio]), collapse = ""))
 }
 
-# figure: totals, receiving states, who breathes it
+# figure: totals, receiving states, who is exposed
 lab_of <- function(d) unname(c("Atlas of Data Center Politics" = "Atlas of DC Politics", "Epoch AI" = "Epoch AI", "Kyars Data Center Atlas" = "Kyars Atlas",
   "PNNL IM3 (OpenStreetMap)" = "PNNL IM3", "FracTracker Data Centers Tracker" = "FracTracker")[d])
 o <- op5[order(deaths_avg)]
@@ -309,7 +309,7 @@ if (!is.null(grp)) {
   kl <- c("Black", "Latino", "Native Am.", "Lowest-income\nfifth", "Middle fifth", "Highest-income\nfifth", "Below poverty", "No HS diploma")
   par(mar = c(6.5, 4, 3, 1))
   plot(NA, xlim = c(0.5, length(keyg) + 0.5), ylim = range(c(0.6, 1.4, grp[group %in% keyg, ratio])), xaxt = "n", xlab = "",
-       ylab = "Exposure relative to everyone", main = "C. Who breathes it (block groups)", cex.main = 0.95)
+       ylab = "Exposure relative to everyone", main = "C. Who is exposed (block groups)", cex.main = 0.95)
   axis(1, seq_along(keyg), kl, las = 2, cex.axis = 0.8); abline(h = 1, lty = 2)
   for (k in seq_along(o$dataset)) { d <- o$dataset[k]; points(seq_along(keyg) + (k - 3) * 0.12, grp[dataset == d][match(keyg, group), ratio], pch = 19, col = pal[d], cex = 1.1) }
 }
