@@ -7,11 +7,12 @@
 # Out: analysis/output/va_permits_sites.csv, va_permits_by_county.csv, va_permits_groups.csv,
 #      va_permits_summary.txt, va_permits_map.png
 #
-# Two cases for each current permit:
+# Three cases for each current permit (routine testing; testing + 50 h of grid support; permitted maximum):
 #   permitted maximum : the annual tons/yr limits in the permit (NOx, PM2.5 or else PM10, SO2 if set)
-#   routine testing   : engines x rated kW x the permit's maintenance/testing hours per engine x 75% load,
-#                       at EPA Tier 2 rates (6.4 g/kWh NOx, 0.2 g/kWh PM), capped at the permitted maximum;
-#                       only where the permit gives all three numbers
+#   routine testing   : engines x rated kW x the permit's maintenance/testing hours per engine (32 h, the median,
+#                       where none is stated) x 75% load, at EPA Tier 2 rates (6.4 g/kWh NOx, 0.2 g/kWh PM), capped
+#                       at the permitted maximum; needs the engine count and ratings
+#   grid support      : routine testing plus 50 h per engine in grid emergencies, SCR engines at Tier 4 rates
 # Emissions are released near the ground (10 m) in the site's model grid cell and run through the
 # same source-receptor matrix as the app (R/calc.R local_source). Short tons are converted to tonnes.
 # Permits that a later one replaces are dropped (column 'current' from scripts/08).
@@ -73,7 +74,7 @@ P[, has_eq := num(engines) > 0 & num(total_ekw) > 0]
 P[, th := fcoalesce(num(test_hours_per_engine), H_TEST_DEFAULT)]
 P[, test_hours_assumed := is.na(num(test_hours_per_engine))]
 P[, f_scr := pmin(fcoalesce(num(scr_engines), 0) / pmax(num(engines), 1), 1)]
-P[, test_mwh := ifelse(has_eq & !test_hours_assumed, num(total_ekw) * th * LOAD / 1e3, NA)]
+P[, test_mwh := ifelse(has_eq, num(total_ekw) * th * LOAD / 1e3, NA)]          # stated testing hours, or 32 (flagged)
 P[, `:=`(nox_test = pmin(6.4 * test_mwh / 1e3, nox_max), pm25_test = pmin(0.2 * test_mwh / 1e3, fcoalesce(pm25_max, Inf)))]
 # grid support: testing (stated hours, or 32) plus 50 h per engine in grid emergencies, capped at the permitted limits
 P[, grid_mwh := ifelse(has_eq, num(total_ekw) * H_GRID * LOAD / 1e3, NA)]
@@ -111,11 +112,6 @@ say("  NOx %s  PM2.5 %s   ->  %.1f PM2.5 deaths/yr (Krewski)", format(round(sum(
     format(round(sum(P$pm25, na.rm = TRUE)), big.mark = ","), sum(P$deaths_max, na.rm = TRUE))
 say("  Northern Virginia (Loudoun, Prince William, Fairfax and cities): NOx %s tons/yr, %.1f deaths/yr",
     format(round(sum(num(P[fips %in% nova]$nox_tpy), na.rm = TRUE)), big.mark = ","), sum(P[fips %in% nova]$deaths_max, na.rm = TRUE))
-tt <- P[is.finite(deaths_test)]
-say("ROUTINE TESTING (permits that give engines, kW and testing hours: %d of %d)", nrow(tt), nrow(P))
-say("  NOx %s tonnes/yr -> %.2f deaths/yr; the same permits at their limits: %.1f deaths/yr (testing is %.0f%% of the limit)",
-    format(round(sum(tt$nox_test)), big.mark = ","), sum(tt$deaths_test), sum(tt$deaths_max, na.rm = TRUE),
-    100 * sum(tt$deaths_test) / sum(tt$deaths_max, na.rm = TRUE))
 say("OPERATING TERMS")
 say("  engines with SCR: %s of %s (%.0f%%); permits allowing use in grid-operator emergencies: %d; 500-hour all-purpose cap: %d",
     format(sum(num(P$scr_engines), na.rm = TRUE), big.mark = ","), format(sum(num(P$engines), na.rm = TRUE), big.mark = ","),
@@ -125,8 +121,7 @@ say("  testing restricted in ozone season: %d permits; testing window set: %d (m
     sum(P$ozone_season_limit %in% c(TRUE, "True")), sum(nzchar(P$testing_window)), sum(!is.na(num(P$fuel_gal_yr))), sum(num(P$fuel_gal_yr), na.rm = TRUE) / 1e6)
 gg <- P[is.finite(deaths_grid)]
 say("THREE CASES, permits with an equipment list (%d; testing hours assumed 32 for %d)", nrow(gg), sum(gg$test_hours_assumed))
-say("  routine testing            NOx %6s t/yr  %5.1f deaths/yr", format(round(sum(6.4 * gg$all_test_mwh / 1e3 * 0 + pmin(6.4 * gg$all_test_mwh / 1e3, gg$nox_max))), big.mark = ","),
-    sum(vapply(seq_len(nrow(gg)), function(k) run(min(6.4 * gg$all_test_mwh[k] / 1e3, gg$nox_max[k]), min(0.2 * gg$all_test_mwh[k] / 1e3, fcoalesce(gg$pm25_max[k], Inf)), 0, gg$cell[k], gg$i[k])$deaths, 0)))
+say("  routine testing            NOx %6s t/yr  %5.1f deaths/yr", format(round(sum(gg$nox_test)), big.mark = ","), sum(gg$deaths_test))
 say("  testing + 50 h grid support NOx %6s t/yr  %5.1f deaths/yr (SCR credited in the grid hours)", format(round(sum(gg$nox_grid)), big.mark = ","), sum(gg$deaths_grid))
 say("  permitted maximum          NOx %6s t/yr  %5.1f deaths/yr", format(round(sum(gg$nox_max, na.rm = TRUE)), big.mark = ","), sum(gg$deaths_max, na.rm = TRUE))
 gx <- copy(gg); gx[, f_scr := 0]

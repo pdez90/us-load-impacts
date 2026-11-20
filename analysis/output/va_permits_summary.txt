@@ -5,8 +5,6 @@ VIRGINIA DATA CENTER AIR PERMITS (DEQ list of 194; 193 read, 191 current after r
 PERMITTED MAXIMUM (every site at its annual limits; short tons/yr)
   NOx 14,613  PM2.5 893   ->  32.0 PM2.5 deaths/yr (Krewski)
   Northern Virginia (Loudoun, Prince William, Fairfax and cities): NOx 11,097 tons/yr, 28.7 deaths/yr
-ROUTINE TESTING (permits that give engines, kW and testing hours: 68 of 191)
-  NOx 2,049 tonnes/yr -> 4.14 deaths/yr; the same permits at their limits: 15.7 deaths/yr (testing is 26% of the limit)
 OPERATING TERMS
   engines with SCR: 3,959 of 11,575 (34%); permits allowing use in grid-operator emergencies: 158; 500-hour all-purpose cap: 101
   testing restricted in ozone season: 119 permits; testing window set: 115 (mostly 7 am-5 pm); annual fuel caps: 87 permits, 67.8 million gal
