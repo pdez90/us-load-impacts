@@ -1,0 +1,43 @@
+Virginia data center noise screening (analysis/06_va_noise.R)
+Current permits: 191; with engine counts and ratings: 170 (11339 engines, 29.3 GW)
+Make and model named in the permit text: 149 of 170
+Sites placed at a geocoded address (used for people counts): 104 of 170; 66 at county points are left out of them
+Receptor grid: 1,009,616 points at 50 m
+
+ENGINES: mean rating per engine, median 2468 kW. Most common families: Caterpillar 3516 (78 permits), Cummins QSK/DQ series (17 permits), Caterpillar C175 (11 permits), MTU 16V4000 (10 permits), Caterpillar C13-C32 (small) (9 permits), Cummins C3000 (6 permits)
+
+DISTANCE TO 55 / 45 dB(A), per site, median / 90th percentile / largest (m); A-weighted, downwind, no barriers
+  Routine test, one engine at full load
+    quiet    Level 2 sound-attenuated enclosure   55 dB(A): 46 / 49 / 54       45 dB(A): 120 / 130 / 144
+    central  Level 1 sound-attenuated enclosure   55 dB(A): 73 / 79 / 87       45 dB(A): 202 / 220 / 244
+    loud     no enclosure (open set)              55 dB(A): 489 / 532 / 588    45 dB(A): 1284 / 1383 / 1505
+  Outage or grid emergency, all engines
+    quiet    Level 2 sound-attenuated enclosure   55 dB(A): 236 / 426 / 712    45 dB(A): 664 / 1138 / 1772
+    central  Level 1 sound-attenuated enclosure   55 dB(A): 399 / 707 / 1146   45 dB(A): 1073 / 1762 / 2616
+    loud     no enclosure (open set)              55 dB(A): 2214 / 3323 / 4551 45 dB(A): 4366 / 5932 / 7517
+  Cooling, design-day full load
+    quiet    extra-low-noise chillers             55 dB(A): 182 / 314 / 526    45 dB(A): 489 / 870 / 1439
+    central  low-noise chillers                   55 dB(A): 242 / 426 / 715    45 dB(A): 664 / 1174 / 1913
+    loud     standard chillers                    55 dB(A): 326 / 579 / 969    45 dB(A): 902 / 1574 / 2512
+
+TESTING TIME: 250,952 engine-hours/yr in all (median 2048 per site). Tested one engine at a time, the median site would
+  be testing during 79% of weekday daytime hours (7am-5pm); 43 sites more than half of them
+  27 sites cannot fit their permitted testing into those hours one engine at a time (up to 31 at once); the routine-test
+  case is one engine, so it is the quietest testing can be; two engines together add 3 dB, four add 6 dB
+
+PEOPLE INSIDE THE CONTOURS (104 geocoded sites, block-group population spread evenly over each block group)
+  test    >= 55 dB(A): quiet      300   central      680   loud   26,620
+  test    >= 45 dB(A): quiet    1,790   central    4,830   loud  170,360
+  outage  >= 55 dB(A): quiet    7,910   central   24,130   loud  575,870
+  outage  >= 45 dB(A): quiet   78,340   central  199,800   loud  995,770
+  cool    >= 55 dB(A): quiet    4,410   central    8,290   loud   16,410
+  cool    >= 45 dB(A): quiet   44,100   central   95,550   loud  178,120
+
+WHO LIVES INSIDE (central case), share of people vs Virginia (ratio)
+  test    >= 45 dB(A): WhiteNoLat 0.72, Black 0.59, Asian 3.38, Latino 1.60, income_q1 0.01, income_q2 0.51, income_q3 0.99, income_q4 1.05, income_q5 1.74
+  outage  >= 45 dB(A): WhiteNoLat 0.71, Black 0.67, Asian 2.74, Latino 2.03, income_q1 0.07, income_q2 0.43, income_q3 0.59, income_q4 1.02, income_q5 1.91
+  cool    >= 45 dB(A): WhiteNoLat 0.72, Black 0.69, Asian 2.70, Latino 1.92, income_q1 0.04, income_q2 0.45, income_q3 0.69, income_q4 1.19, income_q5 1.76
+
+Contours closer than about 150 m are inside most campuses; a point source overstates levels that close to a large site.
+The 66 sites at county points are in va_noise_sites.csv (distances) but not in the people counts.
+Assumptions and their effect: analysis/06_va_noise_assumptions.md
