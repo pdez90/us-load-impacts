@@ -14,6 +14,8 @@
 #      analysis/output/va_noise_people.csv        people inside each contour, by case and group
 #      analysis/output/va_noise_summary.txt
 #      analysis/output/va_noise_map.png
+#      data/va_permits.rds                        what the app's "Virginia data centers" tab shows: every current permit
+#                                                 (air results from analysis/05 plus these noise results)
 #
 # This is a screening calculation, not a noise study. What the permits give: engine make, model, count,
 # rating, testing hours and testing window, and the site. What they do not give, and is assumed here
@@ -30,52 +32,40 @@ OUT <- "analysis/output"; dir.create(OUT, showWarnings = FALSE, recursive = TRUE
 lines <- character(); say <- function(...) { s <- sprintf(...); lines <<- c(lines, s); cat(s, "\n") }
 
 # ---- 1. assumptions ---------------------------------------------------------------------------------
+# The sound levels, heights and propagation are shared with the app, in R/calc.R (NOISE_GEN, NOISE_COOL, NOISE_H,
+# NOISE_ALPHA, noise_lw_gen, noise_lp, noise_dist), so both give the same numbers.
+source("R/calc.R")
 # Generator sound, A-weighted sound pressure at 7 m, full load, for a reference 2,500 kW set.
-GEN_REF_KW <- 2500
 GEN_LEVELS <- data.table(
-  case   = c("quiet", "central", "loud"),
-  label  = c("Level 2 sound-attenuated enclosure", "Level 1 sound-attenuated enclosure", "no enclosure (open set)"),
-  lp7    = c(74, 79, 97.5),
+  case   = names(NOISE_GEN),
+  label  = vapply(NOISE_GEN, `[[`, "", "label"),
+  lp7    = vapply(NOISE_GEN, `[[`, 0, "lp7"),
   source = c("Caterpillar, 3516C 60 Hz sound attenuated enclosure: Level 2, 74 dB(A) at 7 m",
              "Caterpillar, 3516C 60 Hz sound attenuated enclosure: Level 1, 79 dB(A) at 7 m",
              "MTU 20V4000 DS2500 spec sheet: open power unit 97.5 dB(A) at 7 m, full load, infinite exhaust"))
 # Sound power from a level at 7 m over hard ground (hemispherical spreading): Lw = Lp + 20 log10(7) + 8.
 # Smaller and larger engines are scaled by rating (sound power roughly in proportion to engine power).
-lw_gen <- function(kw, lp7) lp7 + 20 * log10(7) + 8 + 10 * log10(kw / GEN_REF_KW)
-H_GEN <- 3            # m, sound centre of an enclosed set (exhaust outlet and radiator top are 3-5 m)
+lw_gen <- noise_lw_gen
+H_GEN <- NOISE_H[["gen"]]   # 3 m, sound centre of an enclosed set (exhaust outlet and radiator top are 3-5 m)
 
 # Cooling: A-weighted sound power per MW of heat rejected by air-cooled chillers, from published unit data.
 # Trane Sintesis RTAF air-cooled chillers, 326-732 kW: standard 95-97 dB(A), low noise 92-94 dB(A), extra-low
 # noise about 89 dB(A) (average); at 732 kW the standard unit is 97 dB(A), i.e. 98.4 dB(A) per MW.
 COOL_LEVELS <- data.table(
-  case   = c("quiet", "central", "loud"),
-  label  = c("extra-low-noise chillers", "low-noise chillers", "standard chillers"),
-  lw_mw  = c(92, 95, 98),
+  case   = names(NOISE_COOL),
+  label  = vapply(NOISE_COOL, `[[`, "", "label"),
+  lw_mw  = vapply(NOISE_COOL, `[[`, 0, "lw_mw"),
   source = "Trane RTAF (Sintesis) published sound power, scaled to 1 MW of cooling; check: 72 chillers at about 96 dB(A) each = 115 dB(A) (Havtech)")
 GEN_PER_HEAT <- 1.25  # MW of generators per MW of heat rejected: N+1 backup on the whole facility load
                       # (2N backup would be 2.0, i.e. 2 dB less cooling noise); assumes the campus is built out
-H_COOL <- 15          # m, rooftop or raised chiller yard
+H_COOL <- NOISE_H[["cool"]]   # 15 m, rooftop or raised chiller yard
 
 # Propagation: ISO 9613-2 section 7, A-weighted, with the simplified ground term (eq. 10) and its directivity
 # correction (eq. 11). Air absorption at 10 C, 70% humidity (ISO 9613-2 table 2): 1.9 dB/km at 500 Hz for
 # generators; 1.0 dB/km at 250 Hz for cooling, whose energy sits at 63-250 Hz.
-H_REC <- 1.5; ALPHA <- c(gen = 1.9e-3, cool = 1.0e-3)
-lp_at <- function(lw, d, hs, alpha, hr = H_REC) {
-  d <- pmax(d, 1)
-  adiv <- 20 * log10(d) + 11
-  hm <- (hs + hr) / 2
-  agr <- pmax(0, 4.8 - (2 * hm / d) * (17 + 300 / d))
-  dom <- 10 * log10(1 + (d^2 + (hs - hr)^2) / (d^2 + (hs + hr)^2))
-  lw + dom - adiv - alpha * d - agr
-}
-dist_to <- function(lw, level, hs, alpha) {           # distance at which the level falls to `level`
-  vapply(lw, function(w) {
-    f <- function(d) lp_at(w, d, hs, alpha) - level
-    if (!is.finite(w) || f(1) < 0) return(0)
-    if (f(20000) > 0) return(20000)
-    uniroot(f, c(1, 20000), tol = 0.5)$root
-  }, 0)
-}
+H_REC <- NOISE_H[["rec"]]; ALPHA <- NOISE_ALPHA
+lp_at <- noise_lp
+dist_to <- noise_dist
 LEVELS <- c(55, 45)   # 55 dB(A): Loudoun's residential property-line limit (Fairfax: 55 at night, 60 by day);
                       # 45 dB(A): about 10 dB above night background measured in a Prince William
                       # neighbourhood (32-35 dB), i.e. clearly audible
@@ -259,6 +249,14 @@ say("")
 say("Contours closer than about 150 m are inside most campuses; a point source overstates levels that close to a large site.")
 say("The %d sites at county points are in va_noise_sites.csv (distances) but not in the people counts.", nrow(E) - nrow(G))
 say("Assumptions and their effect: analysis/06_va_noise_assumptions.md")
+# For the app: every current permit with its air results (analysis/05) and these noise results.
+noise_cols <- setdiff(keep, names(S))
+V <- merge(S, E[, c("registration", noise_cols), with = FALSE], by = "registration", all.x = TRUE)
+grp_air <- if (file.exists(file.path(OUT, "va_permits_groups.csv"))) fread(file.path(OUT, "va_permits_groups.csv")) else NULL
+saveRDS(list(sites = as.data.frame(V), people = as.data.frame(people), air_groups = as.data.frame(grp_air),
+             levels = LEVELS, n_list = 194L, missing = "74331-1 (Westfax 4-5A, Fairfax Co., issued 2026-03-04): DEQ's link opens the Amazon IAD-45 permit (74333-1)",
+             built = format(Sys.Date())), "data/va_permits.rds", compress = "xz")
+say("App data: data/va_permits.rds (%d permits)", nrow(V))
 writeLines(lines, file.path(OUT, "va_noise_summary.txt"))
 
 # Map of Northern Virginia: central cooling level and central outage level.

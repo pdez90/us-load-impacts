@@ -250,5 +250,50 @@ compare_scenarios <- function(app, ...) {
   do.call(rbind, lapply(unname(SCENARIOS), function(s) impact(app, scenario = s, ...)$totals))
 }
 
+# ---- noise: a screening estimate (also used by analysis/06_va_noise.R; assumptions in analysis/06_va_noise_assumptions.md) ----
+# Generators: makers' A-weighted level at 7 m, full load, for a 2,500 kW set (Caterpillar 3516C enclosures, Level 2 and
+# Level 1; MTU 20V4000 DS2500 open set, exhaust excluded), scaled by rating. Cooling: A-weighted sound power per MW of heat
+# rejected by air-cooled chillers (Trane RTAF published data). Spreading: ISO 9613-2 simplified A-weighted method
+# (downwind, flat ground, no barriers).
+NOISE_GEN <- list(
+  quiet   = list(label = "Level 2 sound-attenuated enclosure", lp7 = 74),
+  central = list(label = "Level 1 sound-attenuated enclosure", lp7 = 79),
+  loud    = list(label = "No enclosure (open set)", lp7 = 97.5))
+NOISE_COOL <- list(
+  quiet   = list(label = "Extra-low-noise chillers", lw_mw = 92),
+  central = list(label = "Low-noise chillers", lw_mw = 95),
+  loud    = list(label = "Standard chillers", lw_mw = 98))
+NOISE_REF_KW <- 2500
+NOISE_H <- c(gen = 3, cool = 15, rec = 1.5)              # source and receiver heights, m
+NOISE_ALPHA <- c(gen = 1.9e-3, cool = 1.0e-3)            # air absorption, dB/m (500 Hz and 250 Hz, 10 C, 70% RH)
+noise_lw_gen <- function(kw, lp7) lp7 + 20 * log10(7) + 8 + 10 * log10(kw / NOISE_REF_KW)   # sound power from the 7 m level
+noise_lp <- function(lw, d, hs, alpha, hr = NOISE_H[["rec"]]) {                            # A-weighted level at d metres
+  d <- pmax(d, 1)
+  adiv <- 20 * log10(d) + 11
+  agr <- pmax(0, 4.8 - (2 * (hs + hr) / 2 / d) * (17 + 300 / d))
+  dom <- 10 * log10(1 + (d^2 + (hs - hr)^2) / (d^2 + (hs + hr)^2))
+  lw + dom - adiv - alpha * d - agr
+}
+noise_dist <- function(lw, level, hs, alpha) {                                              # metres to fall to `level`
+  one <- function(w, h, a) {
+    if (!is.finite(w)) return(NA_real_)
+    f <- function(d) noise_lp(w, d, h, a) - level
+    if (f(1) < 0) return(0)
+    if (f(20000) > 0) return(20000)
+    uniroot(f, c(1, 20000), tol = 0.5)$root
+  }
+  n <- max(length(lw), length(hs), length(alpha))
+  unname(mapply(one, rep_len(lw, n), rep_len(hs, n), rep_len(alpha, n)))
+}
+#' The three sources for one site: a routine test (`at_once` engines), an outage (all engines), and cooling.
+noise_sources <- function(n, kw, at_once = 1, enclosure = "central", heat_mw = 0, chillers = "central") {
+  lw1 <- noise_lw_gen(max(kw, 1), NOISE_GEN[[enclosure]]$lp7)
+  data.frame(source = c("Generator test", "Outage: every generator", "Cooling equipment"),
+             lw = c(lw1 + 10 * log10(max(min(at_once, n), 1)), lw1 + 10 * log10(max(n, 1)),
+                    if (heat_mw > 0) NOISE_COOL[[chillers]]$lw_mw + 10 * log10(heat_mw) else NA),
+             hs = NOISE_H[c("gen", "gen", "cool")], alpha = NOISE_ALPHA[c("gen", "gen", "cool")],
+             active = c(n > 0 && kw > 0, n > 0 && kw > 0, heat_mw > 0), row.names = NULL)
+}
+
 fmt <- function(x, d = 0) ifelse(is.na(x), "-", formatC(x, format = "f", digits = d, big.mark = ","))
 sig <- function(x, d = 2) ifelse(is.na(x), "-", formatC(signif(x, d), format = "fg", big.mark = ","))

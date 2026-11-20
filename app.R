@@ -17,6 +17,9 @@ HV_FILE <- file.path(dirname(DATA_FILE), "harvard.rds")      # written by analys
 hv <- if (file.exists(HV_FILE)) readRDS(HV_FILE) else NULL
 OG_FILE <- file.path(dirname(DATA_FILE), "onsite_groups.rds")  # written by 04 after 03 --groups: who is exposed, for sources at the site
 if (!is.null(app) && file.exists(OG_FILE)) app$og <- readRDS(OG_FILE)
+VA_FILE <- file.path(dirname(DATA_FILE), "va_permits.rds")      # written by analysis/06_va_noise.R (after 05)
+va <- if (file.exists(VA_FILE)) readRDS(VA_FILE) else NULL
+REPO <- "https://github.com/pdez90/us-load-impacts/blob/main/"
 MAX_CELLS <- 15000        # most grid cells drawn at once; beyond this the map stays on counties
 
 no_data_ui <- page_fillable(
@@ -99,6 +102,56 @@ hv_ui <- function() {
         "On-site cooling water is not included because facility-level data are not public. Deaths use the Krewski function; the Lepeule function gives about 2.2 times as many."),
       p(sprintf("Their totals: github.com/gianguidi/hyperscale-emissions, public/data_BA_level.csv (commit %s). Built %s. Full tables are in analysis/output/.",
                 substr(as.character(hv$source), 1, 7), hv$built))))
+}
+
+va_ui <- function() {
+  if (is.null(va)) return(card(card_header("Not built yet"), p("Run analysis/05_va_permits.R and then analysis/06_va_noise.R (see 'Virginia data center air permits' in README.md), then restart the app.")))
+  S <- va$sites; num <- function(x) suppressWarnings(as.numeric(x))
+  gw <- sum(num(S$total_ekw), na.rm = TRUE) / 1e6; g <- S[is.finite(num(S$deaths_grid)), ]
+  pp <- va$people; pop55 <- pp$people[pp$source == "cool" & pp$case == "central" & pp$level_dba == 55 & pp$group == "pop"]
+  tagList(
+    div(style = "max-width: 1000px",
+      h4("Virginia data centers: what their air permits allow"),
+      p("Most data centers in Virginia hold an air permit from the state Department of Environmental Quality (DEQ) for their backup diesel generators.",
+        sprintf("DEQ lists %d; %d are current here (%d were read; replaced permits are dropped; one is not available, see the notes).", va$n_list, nrow(S), va$n_list - 1L),
+        "Each permit gives the engines, their ratings, annual emission limits and operating terms. This page shows what the permits add up to:",
+        "the air pollution and deaths under three cases, and a screening estimate of noise from the generators and from cooling equipment.")),
+    layout_columns(fill = FALSE, col_widths = breakpoints(sm = c(6, 6, 6, 6), xxl = c(3, 3, 3, 3)),
+      value_box("Current permits", nrow(S), sprintf("%s engines, %.1f GW of backup generators", fmt(sum(num(S$engines), na.rm = TRUE)), gw), theme = "primary"),
+      value_box("Permitted NOx", sprintf("%s t/yr", fmt(sum(num(S$nox_tpy), na.rm = TRUE) * 0.90718474)), "if every site emitted its annual limit (metric tonnes)", theme = "secondary"),
+      value_box("PM2.5 deaths per year", sprintf("%s to %s", sig(sum(g$deaths_test), 2), sig(sum(g$deaths_max), 3)),
+                sprintf("routine testing to permitted maximum (%d permits with an equipment list)", nrow(g)), theme = "danger"),
+      value_box("Cooling noise above 55 dB(A)", sprintf("%s people", sig(pop55, 2)),
+                "near the geocoded sites, central case; a rough, generic estimate", theme = "warning")),
+    layout_columns(col_widths = c(8, 4),
+      card(card_header("Where the permitted sites are"),
+        layout_columns(fill = FALSE, col_widths = c(4, 4, 4),
+          selectInput("va_col", "Colour sites by", c("Permitted NOx (tons/yr)" = "nox", "Deaths/yr at the permitted maximum" = "deaths", "Generator capacity (MW)" = "mw")),
+          selectInput("va_ring", "Noise rings (55 and 45 dB(A))", c("None" = "none", "Generator test, one engine" = "test", "Outage: every generator" = "outage", "Cooling equipment" = "cool"), selected = "cool"),
+          radioButtons("va_case", "Noise assumption", c("Quieter" = "quiet", "Central" = "central", "Louder" = "loud"), selected = "central", inline = TRUE)),
+        leafletOutput("va_map", height = 560),
+        helpText("Circle size: generator capacity. Hollow circles are permits placed at their county's centre because the address could not be located;",
+                 "they have no noise rings. Rings are drawn downwind with no barriers; the inner ring is 55 dB(A), the outer 45 dB(A).")),
+      card(card_header("Air pollution: three cases"), tableOutput("va_cases"),
+           helpText("Routine testing: each engine's permitted testing hours (32 h where none is stated) at 75% load, at EPA Tier 2 rates.",
+                    "Grid support adds 50 h per engine in grid emergencies, crediting SCR. Deaths from the PM2.5 these cause (InMAP, Krewski)."),
+           card_header("Operating terms in the permits"), tableOutput("va_terms"))),
+    layout_columns(col_widths = c(6, 6),
+      card(card_header("Noise: people inside each level"), tableOutput("va_noise_people"),
+           helpText("People living where the level is at or above the threshold, with every site's cooling (or every site's generators in an outage) added together;",
+                    "a test is one engine at one site at a time. Geocoded sites only, so the counts are low, most of all in Loudoun.",
+                    "Quieter, central and louder are the enclosure (Level 2, Level 1, none) or the chillers (extra-low-noise, low-noise, standard).")),
+      card(card_header("Who lives nearby"), tableOutput("va_who"),
+           helpText("Air: population-weighted PM2.5 from every site at its permitted maximum, relative to everyone in the contiguous US.",
+                    "Noise: share of people within 45 dB(A) of cooling (central case), relative to Virginia's share.",
+                    "Both mostly reflect where in Virginia the sites are (Northern Virginia), not which neighbourhoods are next to them."))),
+    card(card_header("Every current permit"), DTOutput("va_tab")),
+    div(class = "small text-muted", style = "max-width: 1000px",
+      p(strong("Notes. "), "Permits were saved by hand from DEQ's list (DEQ refuses scripted downloads) and read by scripts/08; values that could not be read reliably were read by hand.",
+        "Not available: ", va$missing, ". Built ", va$built, "."),
+      p("The noise figures are a screening estimate, not a noise study: the permits say nothing about noise, so engine loudness comes from makers' published levels,",
+        "the enclosure fitted is unknown, and cooling equipment is estimated from generator capacity. Levels are A-weighted, which understates the low-frequency hum residents report most.",
+        "Every assumption, its effect and its source: ", tags$a("analysis/06_va_noise_assumptions.md", href = paste0(REPO, "analysis/06_va_noise_assumptions.md"), target = "_blank"), ".")))
 }
 
 ui <- if (is.null(app)) no_data_ui else page_navbar(
@@ -194,10 +247,20 @@ ui <- if (is.null(app)) no_data_ui else page_navbar(
         card(card_header("Where the deaths fall"), tableOutput("where_tab"),
              card_header("Exposure by group"), uiOutput("grp_ui")),
         card(card_header("Counties with the most attributable deaths"), DTOutput("top_tab")))),
+    nav_panel("Noise",
+      layout_columns(col_widths = c(4, 8),
+        card(card_header("Settings"),
+          radioButtons("nz_enc", "Generator enclosure", choices = setNames(names(NOISE_GEN), vapply(NOISE_GEN, `[[`, "", "label")), selected = "central"),
+          numericInput("nz_at_once", "Generators run together in a test", 1, min = 1, step = 1),
+          radioButtons("nz_cool", "Cooling equipment", choices = setNames(names(NOISE_COOL), vapply(NOISE_COOL, `[[`, "", "label")), selected = "central"),
+          numericInput("nz_home", "Distance to the nearest homes (m)", 300, min = 10, step = 50),
+          uiOutput("nz_basis")),
+        card(card_header("How far the noise reaches"), tableOutput("nz_tab"), plotOutput("nz_plot", height = 300, fill = FALSE), uiOutput("nz_note")))),
     nav_panel("Compare supply options", DTOutput("cmp_tab"),
               helpText("Same load and location under each supply option. The grid rows use the loss and carbon-free share set in the sidebar.")),
     nav_panel("Methods and limitations", includeHTML("methods.html"), h5("Build report"), verbatimTextOutput("qa"))
   ))),
+  nav_panel("Virginia data centers", va_ui()),
   nav_panel("Harvard replication", hv_ui())
 )
 
@@ -569,6 +632,127 @@ server <- function(input, output, session) {
       par(mar = c(4, 9, 1, 2)); b <- barplot(rev(g$relative), horiz = TRUE, names.arg = rev(lab), las = 1, col = "#2c3e50", border = NA,
                                            xlab = "Exposure relative to the population average", xlim = c(0, max(1.3, max(g$relative) * 1.1)))
       abline(v = 1, lty = 2); text(rev(g$relative), b, sprintf("%.2f", rev(g$relative)), pos = 4, xpd = NA)
+    })
+  }
+
+  # ---- noise at the chosen site (screening; same assumptions as analysis/06_va_noise.R) -----------
+  nz_src <- reactive({
+    noise_sources(max(nz(input$gs_n, 0), 0), max(nz(input$gs_kw, 2500), 0), max(nz(input$nz_at_once, 1), 1),
+                  nz(input$nz_enc, "central"), energy()$facility_mw, nz(input$nz_cool, "central"))
+  })
+  nz_density <- reactive({                                    # people per km2 in the model grid cell around the site
+    k <- site_cell(); if (!has_cells || is.na(k)) NA_real_ else app$cells$pop[k] / app$cells$km[k]^2
+  })
+  output$nz_basis <- renderUI({
+    helpText(sprintf("Generators: %s x %s kW, from 'Add backup diesel generators' in the sidebar (the count follows the facility size until you change it).",
+                     fmt(max(nz(input$gs_n, 0), 0)), fmt(max(nz(input$gs_kw, 0), 0))),
+             sprintf("Cooling: the heat from a %s MW facility at full load (section 2), on a hot day.", fmt(energy()$facility_mw)))
+  })
+  output$nz_tab <- renderTable({
+    s <- nz_src(); s <- s[s$active, ]; validate(need(nrow(s) > 0, "Set a load and some generators to see noise."))
+    home <- max(nz(input$nz_home, 300), 1); dens <- nz_density()
+    d55 <- noise_dist(s$lw, 55, s$hs, s$alpha); d45 <- noise_dist(s$lw, 45, s$hs, s$alpha)
+    ppl <- function(d) if (is.finite(dens)) sig(dens * pi * (d / 1e3)^2, 2) else "-"
+    data.frame(Source = s$source, `Sound power, dB(A)` = sprintf("%.0f", s$lw),
+               `At the nearest homes, dB(A)` = sprintf("%.0f", noise_lp(s$lw, home, s$hs, s$alpha)),
+               `Distance to 55 dB(A)` = paste(fmt(d55), "m"), `Distance to 45 dB(A)` = paste(fmt(d45), "m"),
+               `People within 55` = vapply(d55, ppl, ""), `People within 45` = vapply(d45, ppl, ""), check.names = FALSE)
+  }, striped = TRUE, spacing = "s", align = "lrrrrrr")
+  output$nz_plot <- renderPlot({
+    s <- nz_src(); s <- s[s$active, ]; req(nrow(s) > 0)
+    d <- 10^seq(1, log10(5000), length.out = 200); cols <- c("#e08214", "#a8202f", "#2166ac")[match(s$source, nz_src()$source)]
+    L <- sapply(seq_len(nrow(s)), function(i) noise_lp(s$lw[i], d, s$hs[i], s$alpha[i]))
+    par(mar = c(4, 4.5, 1, 1)); matplot(d, L, type = "l", lty = 1, lwd = 2, col = cols, log = "x", ylim = c(30, max(90, max(L))), las = 1,
+                                        xlab = "Distance from the site (m)", ylab = "Level, dB(A)")
+    abline(h = c(55, 45), lty = 2, col = "grey40"); abline(v = max(nz(input$nz_home, 300), 1), lty = 3)
+    text(12, c(55, 45), c("55 dB(A)", "45 dB(A)"), pos = 3, cex = 0.8, col = "grey30")
+    legend("topright", legend = s$source, col = cols, lwd = 2, bty = "n", cex = 0.85)
+  })
+  output$nz_note <- renderUI({
+    k <- site_cell(); dens <- nz_density()
+    div(class = "small text-muted",
+      p("A screening estimate, not a noise study. Levels are A-weighted, downwind, over flat ground with nothing in the way; buildings, walls and berms often cut 5 to 15 dB.",
+        "Generators: makers' published level at 7 m for a 2.5 MW set (Level 2 enclosure 74, Level 1 79, open 97.5 dB(A)), scaled by rating, at full load.",
+        "Cooling: air-cooled chillers at 92, 95 or 98 dB(A) of sound power per MW of heat rejected. The sources are treated as a point at the site,",
+        "which overstates levels within about 150 m of a large campus. A-weighting understates the low-frequency hum that residents report most."),
+      p(if (is.finite(dens)) sprintf("People: %s people per km2, the density of the model grid cell around the site (%s km), times the area inside each level.%s",
+                                     fmt(dens), app$cells$km[k], if (!identical(input$loc_mode, "latlon")) " The site is the county's centre point; enter coordinates for a real site." else "")
+        else "People: not available for this location.",
+        " Thresholds: 55 dB(A) is Loudoun County's residential limit; 45 dB(A) is about 10 dB above a quiet suburban night. Assumptions and sources: ",
+        tags$a("analysis/06_va_noise_assumptions.md", href = paste0(REPO, "analysis/06_va_noise_assumptions.md"), target = "_blank"), "."))
+  })
+
+  # ---- Virginia data centers page ---------------------------------------------------------------
+  if (!is.null(va)) {
+    VS <- va$sites; num <- function(x) suppressWarnings(as.numeric(x))
+    VS$mw <- num(VS$total_ekw) / 1e3; VS$nox_tpy <- num(VS$nox_tpy); VS$geo <- grepl("^geocoded", VS$placed)
+    yn <- function(x) ifelse(x %in% c(TRUE, "TRUE", "True"), "yes", "no")
+    output$va_map <- renderLeaflet({
+      leaflet(options = leafletOptions(preferCanvas = TRUE)) |> addProviderTiles(providers$Esri.WorldGrayCanvas) |> setView(-77.5, 38.9, 10)
+    })
+    observe({
+      req(input$va_col, input$va_ring, input$va_case)
+      v <- switch(input$va_col, nox = VS$nox_tpy, deaths = num(VS$deaths_max), mw = VS$mw)
+      pal <- colorNumeric("YlOrRd", domain = range(v, na.rm = TRUE), na.color = "#bbbbbb")
+      ttl <- c(nox = "Permitted NOx (short tons/yr)", deaths = "Deaths/yr, permitted max", mw = "Generators (MW)")[[input$va_col]]
+      pop <- sprintf("<b>%s</b> (%s)<br>%s, issued %s<br>%s engines, %s MW%s<br>Permitted NOx %s short tons/yr; %s deaths/yr at the maximum<br>SCR on %s engines; grid-emergency use: %s; testing window: %s<br>Placed at: %s",
+                     htmltools::htmlEscape(VS$site), VS$registration, VS$locality, VS$issued, fmt(num(VS$engines)), sig(VS$mw, 3),
+                     ifelse(is.na(VS$model_family), "", paste0(" (", VS$model_family, ")")), sig(VS$nox_tpy, 3), sig(num(VS$deaths_max), 2),
+                     fmt(num(VS$scr_engines)), yn(VS$grid_emergency_use), ifelse(is.na(VS$testing_window) | VS$testing_window == "", "-", VS$testing_window), VS$placed)
+      r <- 4 + 10 * sqrt(pmax(ifelse(is.na(VS$mw), 0, VS$mw), 0) / max(VS$mw, na.rm = TRUE))
+      p <- leafletProxy("va_map") |> clearGroup("sites") |> clearGroup("rings") |> clearControls()
+      if (input$va_ring != "none") {
+        for (lv in c(45, 55)) {
+          col <- sprintf("d%d_%s_%s", lv, input$va_ring, input$va_case); d <- num(VS[[col]]); k <- which(VS$geo & is.finite(d) & d > 0)
+          if (length(k)) p <- p |> addCircles(lng = VS$lon[k], lat = VS$lat[k], radius = d[k], group = "rings", stroke = FALSE,
+                                              fillColor = if (lv == 55) "#a8202f" else "#f59e72", fillOpacity = if (lv == 55) 0.25 else 0.15)
+        }
+      }
+      p |> addCircleMarkers(lng = VS$lon, lat = VS$lat, radius = r, group = "sites", color = "#333", weight = 1,
+                            fillColor = pal(v), fillOpacity = ifelse(VS$geo, 0.9, 0), popup = pop) |>
+        addLegend("bottomright", pal = pal, values = v[is.finite(v)], title = ttl)
+    })
+    output$va_cases <- renderTable({
+      g <- VS[is.finite(num(VS$deaths_grid)), ]
+      data.frame(Case = c("Routine testing", "Testing + 50 h grid support", "Permitted maximum", sprintf("Permitted maximum, all %d permits", nrow(VS))),
+                 Permits = c(rep(nrow(g), 3), nrow(VS)),
+                 `NOx (t/yr)` = fmt(c(sum(num(g$nox_test)), sum(num(g$nox_grid)), sum(g$nox_tpy, na.rm = TRUE) * 0.90718474, sum(VS$nox_tpy, na.rm = TRUE) * 0.90718474)),
+                 `Deaths/yr` = sig(c(sum(num(g$deaths_test)), sum(num(g$deaths_grid)), sum(num(g$deaths_max)), sum(num(VS$deaths_max), na.rm = TRUE)), 3), check.names = FALSE)
+    }, striped = TRUE, spacing = "s")
+    output$va_terms <- renderTable({
+      eng <- sum(num(VS$engines), na.rm = TRUE)
+      data.frame(Term = c("Engines fitted with SCR", "Running allowed in grid-operator (PJM) emergencies", "Engines capped at 500 h/yr for all purposes",
+                          "Testing restricted in ozone season", "Testing allowed only in set hours", "Annual fuel cap"),
+                 Permits = c(sprintf("%s engines (%.0f%%)", fmt(sum(num(VS$scr_engines), na.rm = TRUE)), 100 * sum(num(VS$scr_engines), na.rm = TRUE) / eng),
+                             sum(VS$grid_emergency_use %in% c(TRUE, "True", "TRUE")), sum(num(VS$hours_all_purposes) == 500, na.rm = TRUE),
+                             sum(VS$ozone_season_limit %in% c(TRUE, "True", "TRUE")), sum(!is.na(VS$testing_window) & VS$testing_window != ""),
+                             sprintf("%d (%s million gal/yr)", sum(is.finite(num(VS$fuel_gal_yr))), sig(sum(num(VS$fuel_gal_yr), na.rm = TRUE) / 1e6, 3))))
+    }, striped = TRUE, spacing = "s")
+    output$va_noise_people <- renderTable({
+      pp <- va$people[va$people$group == "pop", ]
+      key <- c(test = "Generator test, one engine", outage = "Outage: every generator", cool = "Cooling equipment")
+      rows <- expand.grid(level = va$levels, source = names(key), stringsAsFactors = FALSE)
+      get <- function(src, lv, cs) fmt(signif(pp$people[pp$source == src & pp$level_dba == lv & pp$case == cs], 2))
+      data.frame(Source = key[rows$source], Level = paste0(">= ", rows$level, " dB(A)"),
+                 Quieter = mapply(get, rows$source, rows$level, "quiet"), Central = mapply(get, rows$source, rows$level, "central"),
+                 Louder = mapply(get, rows$source, rows$level, "loud"), check.names = FALSE, row.names = NULL)
+    }, striped = TRUE, spacing = "s", align = "llrrr")
+    output$va_who <- renderTable({
+      g <- c(WhiteNoLat = "White, non-Latino", Black = "Black", Asian = "Asian", Latino = "Latino", income_q1 = "Lowest-income fifth", income_q5 = "Highest-income fifth")
+      ag <- va$air_groups; pp <- va$people[va$people$source == "cool" & va$people$case == "central" & va$people$level_dba == 45, ]
+      data.frame(Group = unname(g), `Air: exposure vs US` = sprintf("x%.2f", ag$ratio[match(names(g), ag$group)]),
+                 `Noise: share within 45 dB(A) vs Virginia` = sprintf("x%.2f", pp$ratio_to_va[match(names(g), pp$group)]), check.names = FALSE)
+    }, striped = TRUE, spacing = "s", align = "lrr")
+    output$va_tab <- renderDT({
+      d <- data.frame(Permit = VS$registration, Site = VS$site, Locality = VS$locality, Issued = VS$issued, Engines = num(VS$engines),
+                      MW = round(VS$mw, 1), `Make and model` = VS$model_family, `SCR engines` = num(VS$scr_engines),
+                      `Grid emergencies` = yn(VS$grid_emergency_use), `Testing window` = VS$testing_window,
+                      `NOx limit (short tons/yr)` = round(VS$nox_tpy, 1), `Deaths/yr at the limit` = signif(num(VS$deaths_max), 2),
+                      `Deaths/yr, routine testing` = signif(num(VS$deaths_test), 2),
+                      `55 dB(A): test (m)` = num(VS$d55_test_central), `55 dB(A): outage (m)` = num(VS$d55_outage_central),
+                      `55 dB(A): cooling (m)` = num(VS$d55_cool_central), Located = ifelse(VS$geo, "address", "county centre"), check.names = FALSE)
+      datatable(d[order(-d$`NOx limit (short tons/yr)`), ], rownames = FALSE, filter = "top",
+                options = list(pageLength = 15, scrollX = TRUE, dom = "ftip"))
     })
   }
 

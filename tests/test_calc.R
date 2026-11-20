@@ -123,6 +123,16 @@ test_that("who is exposed works for sources at the site", {
   expect_false(is.null(impact(app, fips, 1, scenario = "onsite", site_cell = cl)$ses))
 })
 
+test_that("noise screening reproduces the makers' level at 7 m and falls with distance", {
+  lw <- noise_lw_gen(2500, NOISE_GEN$central$lp7)
+  expect_equal(noise_lp(lw, 7, NOISE_H[["gen"]], NOISE_ALPHA[["gen"]]), 79, tolerance = 1.5)
+  d <- noise_dist(c(lw, lw + 10), 55, NOISE_H[["gen"]], NOISE_ALPHA[["gen"]]); expect_true(d[2] > 2.5 * d[1])
+  expect_equal(noise_lp(lw, d[1], NOISE_H[["gen"]], NOISE_ALPHA[["gen"]]), 55, tolerance = 0.1)
+  s <- noise_sources(10, 2500, 1, "central", 100, "central")
+  expect_equal(s$lw[2] - s$lw[1], 10); expect_equal(s$lw[3], 95 + 20)
+  expect_false(noise_sources(0, 2500, heat_mw = 0)$active[3])
+})
+
 test_that("the Shiny server runs", {
   Sys.setenv(USLOAD_APP_DATA = file.path(Sys.getenv("USLOAD_DATA"), "app_data.rds"))
   env <- new.env(); sys.source("app.R", envir = env, chdir = FALSE)
@@ -136,6 +146,9 @@ test_that("the Shiny server runs", {
     session$setInputs(grp_set = "Poverty"); expect_match(output$ses_tab, "poverty line");
     session$setInputs(gs_on = TRUE, gs_tier = "tier2", gs_n = 10, gs_kw = 2500, gs_hours = 50, gs_load = 75, gs_h = 10)
     expect_match(output$vb_deaths_sub, "backup generators"); expect_match(output$vb_co2_sub, "generators:")
+    session$setInputs(gs_n = 12, gs_kw = 2500, nz_enc = "central", nz_at_once = 2, nz_cool = "loud", nz_home = 400)
+    expect_match(output$nz_tab, "Outage"); expect_match(output$nz_tab, "Cooling"); expect_silent(output$nz_plot)
+    expect_match(output$nz_note$html, "screening"); expect_match(output$nz_basis$html, "12 x 2,500 kW")
     session$setInputs(gs_on = FALSE); expect_silent(output$plant_tab); expect_silent(output$mix_plot)
     expect_match(output$scenario_help$html, "kg CO2 per MWh"); expect_match(output$region_note$html, "Found automatically")
     expect_match(output$options_help$html, "Keep in mind")

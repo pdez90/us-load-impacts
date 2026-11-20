@@ -10,15 +10,15 @@ DISTANCE TO 55 / 45 dB(A), per site, median / 90th percentile / largest (m); A-w
   Routine test, one engine at full load
     quiet    Level 2 sound-attenuated enclosure   55 dB(A): 46 / 49 / 54       45 dB(A): 120 / 130 / 144
     central  Level 1 sound-attenuated enclosure   55 dB(A): 73 / 79 / 87       45 dB(A): 202 / 220 / 244
-    loud     no enclosure (open set)              55 dB(A): 489 / 532 / 588    45 dB(A): 1284 / 1383 / 1505
+    loud     No enclosure (open set)              55 dB(A): 489 / 532 / 588    45 dB(A): 1284 / 1383 / 1505
   Outage or grid emergency, all engines
     quiet    Level 2 sound-attenuated enclosure   55 dB(A): 236 / 426 / 712    45 dB(A): 664 / 1138 / 1772
     central  Level 1 sound-attenuated enclosure   55 dB(A): 399 / 707 / 1146   45 dB(A): 1073 / 1762 / 2616
-    loud     no enclosure (open set)              55 dB(A): 2214 / 3323 / 4551 45 dB(A): 4366 / 5932 / 7517
+    loud     No enclosure (open set)              55 dB(A): 2214 / 3323 / 4551 45 dB(A): 4366 / 5932 / 7517
   Cooling, design-day full load
-    quiet    extra-low-noise chillers             55 dB(A): 182 / 314 / 526    45 dB(A): 489 / 870 / 1439
-    central  low-noise chillers                   55 dB(A): 242 / 426 / 715    45 dB(A): 664 / 1174 / 1913
-    loud     standard chillers                    55 dB(A): 326 / 579 / 969    45 dB(A): 902 / 1574 / 2512
+    quiet    Extra-low-noise chillers             55 dB(A): 182 / 314 / 526    45 dB(A): 489 / 870 / 1439
+    central  Low-noise chillers                   55 dB(A): 242 / 426 / 715    45 dB(A): 664 / 1174 / 1913
+    loud     Standard chillers                    55 dB(A): 326 / 579 / 969    45 dB(A): 902 / 1574 / 2512
 
 TESTING TIME: 250,952 engine-hours/yr in all (median 2048 per site). Tested one engine at a time, the median site would
   be testing during 79% of weekday daytime hours (7am-5pm); 43 sites more than half of them
@@ -41,3 +41,4 @@ WHO LIVES INSIDE (central case), share of people vs Virginia (ratio)
 Contours closer than about 150 m are inside most campuses; a point source overstates levels that close to a large site.
 The 66 sites at county points are in va_noise_sites.csv (distances) but not in the people counts.
 Assumptions and their effect: analysis/06_va_noise_assumptions.md
+App data: data/va_permits.rds (191 permits)
