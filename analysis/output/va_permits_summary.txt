@@ -1,4 +1,5 @@
 VIRGINIA DATA CENTER AIR PERMITS (DEQ list of 194; 193 read, 191 current after replaced permits are dropped)
+  not available: 74331-1 (Westfax 4-5A, Fairfax Co.); DEQ's link for it opens the Amazon IAD-45 permit (74333-1)
   engines: 11,575 in 177 permits with an equipment list read; rated 29.3 GW
   located: 117 by geocoded address (5 of them just over the listed county's line), 74 at the county point (4 owner's office addresses)
 PERMITTED MAXIMUM (every site at its annual limits; short tons/yr)
@@ -6,6 +7,14 @@ PERMITTED MAXIMUM (every site at its annual limits; short tons/yr)
   Northern Virginia (Loudoun, Prince William, Fairfax and cities): NOx 11,097 tons/yr, 28.7 deaths/yr
 ROUTINE TESTING (permits that give engines, kW and testing hours: 68 of 191)
   NOx 2,049 tonnes/yr -> 4.14 deaths/yr; the same permits at their limits: 15.7 deaths/yr (testing is 26% of the limit)
+OPERATING TERMS
+  engines with SCR: 3,959 of 11,575 (34%); permits allowing use in grid-operator emergencies: 158; 500-hour all-purpose cap: 101
+  testing restricted in ozone season: 119 permits; testing window set: 115 (mostly 7 am-5 pm); annual fuel caps: 87 permits, 67.8 million gal
+THREE CASES, permits with an equipment list (170; testing hours assumed 32 for 102)
+  routine testing            NOx  4,519 t/yr    7.9 deaths/yr
+  testing + 50 h grid support NOx  7,372 t/yr   14.0 deaths/yr (SCR credited in the grid hours)
+  permitted maximum          NOx 12,081 t/yr   30.1 deaths/yr
+  grid support if no engine had SCR: NOx 7,873 t/yr
 BY LOCALITY (permitted maximum)
   Loudoun Co.           90 permits  5,909 engines  15.0 GW  NOx  7,242 tons/yr  20.1 deaths/yr
   Prince William Co.    30 permits  2,032 engines   5.4 GW  NOx  2,351 tons/yr  4.8 deaths/yr

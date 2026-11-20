@@ -69,10 +69,10 @@ def unit_set(head):
     if not m: return frozenset()
     t = m.group(1).replace("–", "-").replace("—", "-")
     out = set()
-    for a, x, b, y in re.findall(r"([a-z]*-?)\s*(\d{1,4})\s*(?:through|thru|to|-)\s*([a-z]*-?)\s*(\d{1,4})", t):
+    for a, x, b, y in re.findall(r"((?:[a-z]+-)*[a-z]*-?)\s*(\d{1,4})\s*(?:through|thru|to|-)\s*((?:[a-z]+-)*[a-z]*-?)\s*(\d{1,4})", t):
         x, y = int(x), int(y)
         if 0 < y - x < 3000: out |= {(a.strip("-"), i) for i in range(x, y + 1)}
-    t2 = re.sub(r"([a-z]*-?)\s*(\d{1,4})\s*(?:through|thru|to|-)\s*([a-z]*-?)\s*(\d{1,4})", " ", t)
+    t2 = re.sub(r"((?:[a-z]+-)*[a-z]*-?)\s*(\d{1,4})\s*(?:through|thru|to|-)\s*((?:[a-z]+-)*[a-z]*-?)\s*(\d{1,4})", " ", t)
     for a, x in re.findall(r"\b([a-z]{0,6}-?)(\d{1,4})\b", t2): out.add((a.strip("-"), int(x)))
     return frozenset(out)
 
@@ -207,6 +207,33 @@ def equipment(lines):
     return groups, flags
 
 
+def operating_terms(lines, text, n_engines):
+    """SCR-controlled engines (from 'Emission Controls (SCR)' conditions, else the equipment table), hours per engine for
+    all purposes, whether running in grid-operator emergencies / demand response is allowed, ozone-season and time-of-day
+    limits on testing, and which emission standards the permit cites."""
+    scr, scr_cond = set(), False
+    for n, head, block in conditions(lines):
+        h = head[:400]
+        if re.search(r"\(scr\)|selective catalytic|scr system", h) and re.search(r"control|nox|nitrogen", h):
+            scr_cond = True; scr |= unit_set(h)
+    src = "conditions" if scr_cond else ""
+    n_scr = min(len(scr), n_engines) if scr else 0
+    if scr_cond and not scr: src = "conditions (engines not listed)"
+    if not scr_cond:
+        _, blk = section(lines, r"equipment\s+list|equipment at this facility", r"^\s*(?:\d{1,2}\.\s+[A-Z]|[Ss]pecifications included)", 700)
+        if re.search(r"\bSCR\b|selective\s+catalytic", "\n".join(blk), re.I): src = "equipment table (all engines assumed)"; n_scr = n_engines
+    allp = [num(v) for v in re.findall(r"more than\s+" + NUM + r"\s+hours?\s+per\s+(?:calendar\s+)?year\s+for\s+all\s+purposes", text, re.I)]
+    win = re.search(r"between\s+(?:the\s+hours\s+of\s+)?(\d{1,2}(?::\d{2})?\s*[ap]\.?m\.?)\s+(?:and|to)\s+(\d{1,2}(?::\d{2})?\s*[ap]\.?m\.?)", text, re.I)
+    return {"scr_engines": n_scr, "scr_source": src,
+            "hours_all_purposes": max(allp) if allp else "",
+            "grid_emergency_use": bool(re.search(r"ISO[- ]declared emergency|ISO emergency|emergency demand response|"
+                                                  r"emergency load response|load management|demand response", text, re.I)),
+            "ozone_season_limit": bool(re.search(r"ozone season", text, re.I)),
+            "testing_window": ("%s-%s" % (win.group(1), win.group(2))).replace(" ", "") if win else "",
+            "cites_tier4": bool(re.search(r"Tier\s*(?:4|IV)\b|1039\.101", text)),
+            "cites_tier2": bool(re.search(r"Tier\s*(?:2|II)\b|89\.112|appendix I to (?:40 CFR )?part 1039", text, re.I))}
+
+
 def hours_limit(text):
     m = re.search(r"shall not operate more than\s+" + NUM + r"\s+hours?\s+per\s+(?:calendar\s+)?year\s+for\s+(?:scheduled\s+)?"
                   r"(?:maintenance|testing|purposes of maintenance)", text, re.I)
@@ -280,7 +307,8 @@ def main():
                      **{"%s_tpy" % k: lim.get(k, "") for k, _ in POLL}, "nox_read_as": how.get("nox", ""),
                      "engines": n_eng, "engine_groups": len(gs), "total_ekw": round(kw) if kw else "", "total_bhp": round(bhp) if bhp else "",
                      "fire_pumps": sum(g["n"] for g in fp), "test_hours_per_engine": hours_limit(txt) or "",
-                     "fuel_gal_yr": fuel_limit(txt) or "", "flags": "; ".join(flags), "_text": txt})
+                     "fuel_gal_yr": fuel_limit(txt) or "", **operating_terms(lines, txt, n_eng),
+                     "flags": "; ".join(flags), "_text": txt})
     # hand-read values (data-raw/permits/va/overrides.csv), each with a note saying where it came from
     ov_path = os.path.join(os.path.dirname(a.list), "overrides.csv")
     if os.path.exists(ov_path):
