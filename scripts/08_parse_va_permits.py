@@ -259,6 +259,8 @@ def main():
     for fn in sorted(f for f in os.listdir(a.pdfs) if f.lower().endswith(".pdf")):
         base, suf = reg_from_file(fn)
         cands = [k for k in deq if k.split("-")[0] == base and (suf is None or int(k.split("-")[1]) == suf)]
+        alt = [k for k in deq if k.split("-")[0] == base]
+        if not cands and len(alt) == 1: cands = alt                 # file suffix differs from DEQ's list (30142-2 saved for 30142-3)
         reg = cands[0] if len(cands) == 1 else (base + ("-%d" % suf if suf is not None else ""))
         meta = deq.get(reg, {})
         txt = text_of(os.path.join(a.pdfs, fn)); lines = txt.splitlines()
