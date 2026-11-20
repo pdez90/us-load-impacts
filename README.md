@@ -77,6 +77,18 @@ Rscript scripts/05_write_manifest.R
 
 Backup diesel generators are an option in the app's sidebar, added to any supply option: count, kW, hours run per year, load while running, EPA Tier 2 or Tier 4 final emission rates, released at the site.
 
+## Virginia data center air permits
+
+Virginia DEQ lists its issued air permits for data centers (194 as of September 2026), mostly for backup diesel generators. DEQ's site refuses scripted downloads, so the PDFs are saved by hand from the list into one folder (`<registration without hyphen>_DC_Permit.pdf`, as DEQ names them). Then:
+
+```bash
+python3 scripts/08_parse_va_permits.py --pdfs ~/Downloads/permits_virginia   # -> data-raw/permits/va/va_permits.csv
+python3 scripts/09_geocode_va_permits.py                                       # site addresses -> coordinates (Census geocoder)
+Rscript analysis/05_va_permits.R                                               # -> analysis/output/va_permits_*
+```
+
+Step 08 reads each permit's annual emission limits (tons/yr), engine counts and ratings, testing-hour limits and site address. When a permit sets limits for several groups of engines it uses a facility-wide or combined limit if there is one, the limit covering every engine if limits overlap, and otherwise the sum. Values that could not be read reliably (scanned pages, tables drawn as images) were read by hand and are in `data-raw/permits/va/overrides.csv`, each with a note; DEQ's list is in `deq_list.csv` (both tracked in git). Permits replaced by a later one ("supersedes your permit dated ...") or restated in a Title V permit are dropped. Step 05 models two cases for each site: every site at its permitted annual limits, and routine testing only (engines x rated kW x the permit's testing hours x 75% load at Tier 2 rates).
+
 ## Run and deploy
 
 ```r

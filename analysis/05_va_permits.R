@@ -1,0 +1,115 @@
+# =============================================================================
+# 05_va_permits.R  --  Virginia data center backup generators, from their air permits
+# -----------------------------------------------------------------------------
+# In : data-raw/permits/va/va_permits.csv           (scripts/08: limits, engines, hours, addresses)
+#      data-raw/permits/va/va_permits_geocoded.csv  (scripts/09, optional: site coordinates)
+#      data/app_data.rds, data/onsite_groups.rds
+# Out: analysis/output/va_permits_sites.csv, va_permits_by_county.csv, va_permits_groups.csv,
+#      va_permits_summary.txt, va_permits_map.png
+#
+# Two cases for each current permit:
+#   permitted maximum : the annual tons/yr limits in the permit (NOx, PM2.5 or else PM10, SO2 if set)
+#   routine testing   : engines x rated kW x the permit's maintenance/testing hours per engine x 75% load,
+#                       at EPA Tier 2 rates (6.4 g/kWh NOx, 0.2 g/kWh PM), capped at the permitted maximum;
+#                       only where the permit gives all three numbers
+# Emissions are released near the ground (10 m) in the site's model grid cell and run through the
+# same source-receptor matrix as the app (R/calc.R local_source). Short tons are converted to tonnes.
+# Permits that a later one replaces are dropped (column 'current' from scripts/08).
+# =============================================================================
+suppressPackageStartupMessages({ library(data.table); library(sf) })
+sf_use_s2(FALSE)
+source("R/calc.R")
+OUT <- "analysis/output"; dir.create(OUT, showWarnings = FALSE, recursive = TRUE)
+lines <- character(); say <- function(...) { s <- sprintf(...); lines <<- c(lines, s); cat(s, "\n") }
+SHORT_TON <- 0.90718474; B_K <- CRF$krewski$beta; H_GEN <- 10
+
+app <- readRDS("data/app_data.rds"); app$og <- if (file.exists("data/onsite_groups.rds")) readRDS("data/onsite_groups.rds")
+P <- fread("data-raw/permits/va/va_permits.csv", colClasses = list(character = c("registration", "zip")))
+n_all <- nrow(P); P <- P[current == "yes"]
+
+# ---- where each site is -------------------------------------------------------------------------------
+cty <- as.data.table(st_drop_geometry(app$counties))[state == "VA"]
+cty[, city := as.integer(fips) >= 51500]
+loc_fips <- function(l) {                                   # "Loudoun Co." -> 51107, "Manassas City" -> 51683
+  nm <- sub("\\s+(Co\\.|County|City)$", "", l); is_city <- grepl("City$", l)
+  hit <- cty[name == nm & city == is_city]; if (nrow(hit) == 1) hit$fips else NA_character_
+}
+P[, fips := vapply(locality, loc_fips, "")]
+stopifnot(!anyNA(P$fips))
+G <- if (file.exists("data-raw/permits/va/va_permits_geocoded.csv")) fread("data-raw/permits/va/va_permits_geocoded.csv",
+       colClasses = list(character = c("registration", "state_fips", "county_fips"))) else NULL
+P[, `:=`(lon = NA_real_, lat = NA_real_, placed = "county point")]
+if (!is.null(G)) {
+  P[G[match == "Match"], on = "registration", `:=`(glon = as.numeric(i.lon), glat = as.numeric(i.lat), gf = paste0(i.state_fips, i.county_fips))]
+  ok <- !is.na(P$glon) & P$gf == P$fips                     # a corporate mailing address lands in the wrong county
+  P[ok, `:=`(lon = glon, lat = glat, placed = "geocoded address")]
+  P[!ok & !is.na(glon), placed := "county point (address geocoded outside the permit's county)"]
+}
+P[, i := match(fips, app$counties$fips)]
+P[, cell := ifelse(is.na(lon), app$onsite$cell[i] + 1, mapply(function(x, y) locate_cell(app, x, y), lon, lat))]
+P[is.na(lon), `:=`(lon = app$counties$lon[i], lat = app$counties$lat[i])]
+
+# ---- emissions ------------------------------------------------------------------------------------------
+num <- function(x) suppressWarnings(as.numeric(x))
+P[, pm25 := fcoalesce(num(pm25_tpy), num(pm10_tpy))]
+P[, `:=`(nox_max = num(nox_tpy) * SHORT_TON, pm25_max = pm25 * SHORT_TON, so2_max = fcoalesce(num(so2_tpy), 0) * SHORT_TON)]
+P[, test_mwh := num(engines) * num(total_ekw) / pmax(num(engines), 1) * num(test_hours_per_engine) * 0.75 / 1e3]
+P[, test_mwh := ifelse(num(engines) > 0 & num(total_ekw) > 0 & num(test_hours_per_engine) > 0, test_mwh, NA)]
+P[, `:=`(nox_test = pmin(6.4 * test_mwh / 1e3, nox_max), pm25_test = pmin(0.2 * test_mwh / 1e3, fcoalesce(pm25_max, Inf)))]
+
+run <- function(nox, pm, so2, cell, i) {
+  if (!is.finite(nox) || is.na(cell)) return(list(deaths = NA_real_, ses = NULL))
+  t <- c(pm25 = fcoalesce(pm, 0), so2 = fcoalesce(so2, 0), nox = nox)
+  local_source(app, t, H_GEN, cell, i, B_K)
+}
+res_max <- lapply(seq_len(nrow(P)), function(k) run(P$nox_max[k], P$pm25_max[k], P$so2_max[k], P$cell[k], P$i[k]))
+res_tst <- lapply(seq_len(nrow(P)), function(k) run(P$nox_test[k], P$pm25_test[k], 0, P$cell[k], P$i[k]))
+P[, deaths_max := vapply(res_max, `[[`, 0, "deaths")]; P[, deaths_test := vapply(res_tst, `[[`, 0, "deaths")]
+
+keep <- c("registration", "site", "locality", "fips", "issued", "program", "street", "placed", "lon", "lat", "engines", "total_ekw",
+          "test_hours_per_engine", "nox_tpy", "pm25_tpy", "pm10_tpy", "nox_read_as", "deaths_max", "nox_test", "deaths_test", "flags")
+fwrite(P[order(-deaths_max), ..keep], file.path(OUT, "va_permits_sites.csv"))
+
+# ---- summaries ----------------------------------------------------------------------------------------
+nova <- c("51107", "51153", "51059", "51683", "51685", "51600", "51610", "51013", "51510")   # Loudoun, Prince William, Fairfax, Manassas, Manassas Park, Fairfax city, Falls Church, Arlington, Alexandria
+say("VIRGINIA DATA CENTER AIR PERMITS (DEQ list of 194; %d read, %d current after replaced permits are dropped)", n_all, nrow(P))
+say("  engines: %s in %d permits with an equipment list read; rated %.1f GW", format(sum(num(P$engines), na.rm = TRUE), big.mark = ","),
+    sum(num(P$engines) > 0, na.rm = TRUE), sum(num(P$total_ekw), na.rm = TRUE) / 1e6)
+say("  located: %d by geocoded address, %d at the county point", sum(P$placed == "geocoded address"), sum(P$placed != "geocoded address"))
+say("PERMITTED MAXIMUM (every site at its annual limits; short tons/yr)")
+say("  NOx %s  PM2.5 %s   ->  %.1f PM2.5 deaths/yr (Krewski)", format(round(sum(num(P$nox_tpy), na.rm = TRUE)), big.mark = ","),
+    format(round(sum(P$pm25, na.rm = TRUE)), big.mark = ","), sum(P$deaths_max, na.rm = TRUE))
+say("  Northern Virginia (Loudoun, Prince William, Fairfax and cities): NOx %s tons/yr, %.1f deaths/yr",
+    format(round(sum(num(P[fips %in% nova]$nox_tpy), na.rm = TRUE)), big.mark = ","), sum(P[fips %in% nova]$deaths_max, na.rm = TRUE))
+tt <- P[is.finite(deaths_test)]
+say("ROUTINE TESTING (permits that give engines, kW and testing hours: %d of %d)", nrow(tt), nrow(P))
+say("  NOx %s tonnes/yr -> %.2f deaths/yr; the same permits at their limits: %.1f deaths/yr (testing is %.0f%% of the limit)",
+    format(round(sum(tt$nox_test)), big.mark = ","), sum(tt$deaths_test), sum(tt$deaths_max, na.rm = TRUE),
+    100 * sum(tt$deaths_test) / sum(tt$deaths_max, na.rm = TRUE))
+byc <- P[, .(permits = .N, engines = sum(num(engines), na.rm = TRUE), gw = sum(num(total_ekw), na.rm = TRUE) / 1e6,
+             nox_tpy = sum(num(nox_tpy), na.rm = TRUE), deaths_max = sum(deaths_max, na.rm = TRUE)), by = locality][order(-nox_tpy)]
+fwrite(byc, file.path(OUT, "va_permits_by_county.csv"))
+say("BY LOCALITY (permitted maximum)")
+for (k in seq_len(min(8, nrow(byc)))) with(byc[k], say("  %-20s %3d permits %6s engines %5.1f GW  NOx %6s tons/yr  %.1f deaths/yr",
+                                                         locality, permits, format(engines, big.mark = ","), gw, format(round(nox_tpy), big.mark = ","), deaths_max))
+# who is exposed: all sites at their limits
+grp <- Reduce(add_ses, Filter(Negate(is.null), lapply(res_max, `[[`, "ses")))
+if (!is.null(grp)) {
+  fwrite(grp, file.path(OUT, "va_permits_groups.csv"))
+  say("WHO IS EXPOSED (all sites at their limits; exposure relative to everyone in the contiguous US)")
+  for (g in c("WhiteNoLat", "Black", "Asian", "Latino", "income_q1", "income_q5", "below_poverty"))
+    with(grp[grp$group == g, ], say("  %-28s x%.2f", label, ratio))
+}
+# map
+va <- st_transform(app$counties[app$counties$state == "VA", ], 4326)
+png(file.path(OUT, "va_permits_map.png"), width = 2000, height = 1150, res = 200)
+par(mar = c(0.5, 0.5, 2.5, 0.5))
+plot(st_geometry(va), col = "grey96", border = "grey75", main = "Virginia data center generator permits: permitted NOx (circle area ~ tons/yr)")
+o <- P[is.finite(num(nox_tpy))][order(-num(nox_tpy))]
+points(o$lon, o$lat, pch = 21, cex = 0.4 + 2.2 * sqrt(num(o$nox_tpy) / max(num(o$nox_tpy))),
+       bg = adjustcolor(ifelse(o$placed == "geocoded address", "#c0392b", "#7f8c8d"), 0.5), col = "grey30", lwd = 0.4)
+legend("bottomleft", c("site address", "county point (address not located)"), pt.bg = adjustcolor(c("#c0392b", "#7f8c8d"), 0.6),
+       pch = 21, pt.cex = 1.3, bty = "n", cex = 0.8)
+dev.off()
+writeLines(lines, file.path(OUT, "va_permits_summary.txt"))
+cat("wrote", OUT, "\n")
