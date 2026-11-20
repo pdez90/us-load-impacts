@@ -15,6 +15,8 @@ DATA_FILE <- Sys.getenv("USLOAD_APP_DATA", unset = "data/app_data.rds")
 app <- if (file.exists(DATA_FILE)) readRDS(DATA_FILE) else NULL
 HV_FILE <- file.path(dirname(DATA_FILE), "harvard.rds")      # written by analysis/02_harvard_extension.R
 hv <- if (file.exists(HV_FILE)) readRDS(HV_FILE) else NULL
+OG_FILE <- file.path(dirname(DATA_FILE), "onsite_groups.rds")  # written by 04 after 03 --groups: who is exposed, for sources at the site
+if (!is.null(app) && file.exists(OG_FILE)) app$og <- readRDS(OG_FILE)
 MAX_CELLS <- 15000        # most grid cells drawn at once; beyond this the map stays on counties
 
 no_data_ui <- page_fillable(
@@ -148,6 +150,19 @@ ui <- if (is.null(app)) no_data_ui else page_navbar(
         numericInput("os_water", "Water L/MWh", 0), numericInput("os_h", "Release height m", 60, min = 0)),
       helpText("Illustrative rates: replace them with the permit values. Release height is stack height plus plume rise.")),
     hr(),
+    checkboxInput("gs_on", strong("Add backup diesel generators"), FALSE),
+    conditionalPanel("input.gs_on",
+      selectInput("gs_tier", "Emission standard", choices = setNames(names(GENSETS), vapply(GENSETS, `[[`, "", "label"))),
+      layout_columns(col_widths = c(6, 6),
+        numericInput("gs_n", "Number of generators", 41, min = 0, step = 1), numericInput("gs_kw", "kW each", 2500, min = 0, step = 100),
+        numericInput("gs_hours", "Hours run per year, each", 50, min = 0, step = 10), numericInput("gs_load", "Average load while running (%)", 75, min = 0, max = 100),
+        numericInput("gs_h", "Release height m", 10, min = 0)),
+      helpText("The count starts at enough 2.5 MW units to carry the facility's full load, plus one spare; change it to the site's actual number. ",
+               "Emergency engines may run up to 100 hours a year for testing, maintenance and limited non-emergency use under federal rules ",
+               "(40 CFR 60.4211(f)); there is no cap during real outages. Testing often runs at part load. ",
+               "Emissions are released at the site, near the ground, and added to whichever supply option is chosen above. ",
+               "Rates: EPA limits for engines of 560 kW and over (the whole Tier 2 NMHC+NOx limit is counted as NOx, an upper bound).")),
+    hr(),
     accordion(open = FALSE, accordion_panel("Advanced settings",
       selectInput("subrgn", "Grid region", choices = c("Automatic (from the county)" = "", setNames(regions, region_label(regions)))),
       helpText("The region is found automatically from the county. Change it only if you know the site is served from a different region."),
@@ -278,8 +293,16 @@ server <- function(input, output, session) {
          clean_share = input$clean / 100, beta = CRF[[input$crf]]$beta, wue = max(nz(input$wue, 0), 0),
          onsite = list(co2 = nz(input$os_co2, 0), nox = nz(input$os_nox, 0), so2 = nz(input$os_so2, 0),
                        pm25 = nz(input$os_pm, 0), water = nz(input$os_water, 0)),
-         onsite_height = nz(input$os_h, 60), shares = shares(), site_cell = site_cell())
+         onsite_height = nz(input$os_h, 60), shares = shares(), site_cell = site_cell(),
+         gensets = if (isTRUE(input$gs_on)) list(n = max(nz(input$gs_n, 0), 0), kw = max(nz(input$gs_kw, 0), 0), hours = max(nz(input$gs_hours, 0), 0),
+                                                 load = min(max(nz(input$gs_load, 0), 0), 100) / 100, rates = GENSETS[[nz(input$gs_tier, "tier2")]],
+                                                 height_m = max(nz(input$gs_h, 10), 0)))
   })
+  # generator count follows the facility size until the user types one
+  gs_touched <- reactiveVal(FALSE)
+  observeEvent(input$gs_n, if (!identical(input$gs_n, gs_auto())) gs_touched(TRUE), ignoreInit = TRUE)
+  gs_auto <- reactive(ceiling(energy()$facility_mw * 1000 / max(nz(input$gs_kw, 2500), 1)) + 1)
+  observeEvent(gs_auto(), if (!gs_touched()) updateNumericInput(session, "gs_n", value = gs_auto()))
   res <- reactive(do.call(impact, c(list(app = app, scenario = input$scenario), args())))
   mix_row <- function(m) mixdf[mixdf$subrgn == region() & mixdf$mix == m, ]
 
@@ -307,11 +330,13 @@ server <- function(input, output, session) {
   })
   output$vb_co2 <- renderText(sprintf("%s kt/yr", sig(res()$totals$co2_t / 1e3, 3)))
   output$vb_co2_sub <- renderText({ t <- res()$totals
-    sprintf("NOx %s t, SO2 %s t, primary PM2.5 %s t per year", sig(t$nox_t, 3), sig(t$so2_t, 3), sig(t$pm25_t, 3)) })
+    paste0(sprintf("NOx %s t, SO2 %s t, primary PM2.5 %s t per year", sig(t$nox_t, 3), sig(t$so2_t, 3), sig(t$pm25_t, 3)),
+           if (t$genset_mwh > 0) sprintf("; generators: %s kt CO2, %s t NOx", sig(t$genset_co2_t / 1e3, 2), sig(t$genset_nox_t, 2)) else "") })
   output$vb_deaths <- renderText(sprintf("%s per year", sig(res()$totals$deaths, 2)))
   output$vb_deaths_sub <- renderText({ t <- res()$totals
-    sprintf("$%s million/yr at the chosen VSL; mean increment %s ng/m3 across the US population",
-            sig(t$deaths * nz(input$vsl, 0), 2), sig(t$pw_ugm3 * 1e3, 2)) })
+    paste0(sprintf("$%s million/yr at the chosen VSL; mean increment %s ng/m3 across the US population",
+                   sig(t$deaths * nz(input$vsl, 0), 2), sig(t$pw_ugm3 * 1e3, 2)),
+           if (t$genset_mwh > 0) sprintf("; %s of the deaths from backup generators (%s MWh/yr)", sig(t$genset_deaths, 2), fmt(t$genset_mwh)) else "") })
   output$vb_water <- renderText({ t <- res()$totals; sprintf("%s ML/yr", sig(t$water_site_ML + t$water_gen_cons_ML, 3)) })
   output$vb_water_sub <- renderText({ t <- res()$totals
     sprintf("%s on site, %s at power plants%s (1 ML = 264,000 US gal)", sig(t$water_site_ML, 3), sig(t$water_gen_cons_ML, 3),
@@ -328,8 +353,10 @@ server <- function(input, output, session) {
     if (length(v) == 3 && all(is.finite(v))) setView(m, v[1], v[2], v[3]) else fitBounds(m, -124.8, 24.5, -66.9, 49.4)
   })
   output$map_note <- renderUI({
-    if (input$scenario == "onsite") div(class = "alert alert-warning", "On-site generation: totals only. The downwind map needs the full matrix row for the site, which this version does not store.")
-    else if (input$scenario == "clean") div(class = "alert alert-info", "No operational emissions in this scenario.")
+    gs <- if (isTRUE(input$gs_on)) " Backup generator emissions are in the totals and the Who is exposed tab, not on this map." else ""
+    if (input$scenario == "onsite") div(class = "alert alert-warning", paste0("On-site generation: no downwind map. The map needs the full matrix row for the site, which this version does not store; totals and the Who is exposed tab are available.", gs))
+    else if (input$scenario == "clean") div(class = "alert alert-info", paste0("No operational emissions from the electricity supply in this scenario.", gs))
+    else if (nzchar(gs)) div(class = "alert alert-light", trimws(gs))
   })
   bounds <- debounce(reactive(input$map_bounds), 350)
   in_view <- reactive({
@@ -451,7 +478,10 @@ server <- function(input, output, session) {
                  helpText("Population-weighted PM2.5 increment, relative to the average for everyone (model-grid populations)."))
   })
   ses_rows <- reactive({
-    d <- res()$ses; validate(need(!is.null(d) && d$dpm_ugm3[1] > 0, "Not available for this supply option."))
+    d <- res()$ses
+    validate(need(!is.null(d) && d$dpm_ugm3[1] > 0,
+                  if (input$scenario == "onsite" && is.null(app$og)) "For on-site generation this needs data/onsite_groups.rds (see the README)."
+                  else "No emissions in this supply option."))
     d[d$group %in% SES_SETS[[nz(input$grp_set, names(SES_SETS)[1])]], ]
   })
   output$ses_plot <- renderPlot({

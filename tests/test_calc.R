@@ -2,6 +2,7 @@
 suppressPackageStartupMessages({ library(testthat); library(data.table); library(sf); library(shiny) })
 source("R/calc.R"); options(datatable.integer64 = "double")
 BUILD <- Sys.getenv("USLOAD_BUILD"); app <- readRDS(file.path(Sys.getenv("USLOAD_DATA"), "app_data.rds"))
+og_file <- file.path(Sys.getenv("USLOAD_DATA"), "onsite_groups.rds"); if (file.exists(og_file)) app$og <- readRDS(og_file)
 cells <- fread(file.path(BUILD, "isrm_cells.csv")); plants <- fread(file.path(BUILD, "plants.csv"))
 fips <- app$counties$fips[10]; reg <- app$counties$subrgn[10]
 
@@ -83,6 +84,45 @@ test_that("block-group groups are consistent", {
   r2 <- impact(app, fips, 2 * twh, scenario = "avg"); expect_equal(r2$ses$dpm_ugm3, 2 * d$dpm_ugm3)   # linear in load
   rc <- impact(app, fips, twh, scenario = "custom"); expect_equal(rc$ses$dpm_ugm3, d$dpm_ugm3, tolerance = 1e-6)  # default custom = average
 })
+test_that("backup generators add to every option and scale with hours", {
+  fips <- app$counties$fips[10]; twh <- 1
+  gs <- list(n = 10, kw = 2500, hours = 50, load = 0.75, rates = GENSETS$tier2, height_m = 10)
+  for (sc in c("nb", "avg", "custom", "onsite", "clean")) {
+    a <- impact(app, fips, twh, scenario = sc)$totals; b <- impact(app, fips, twh, scenario = sc, gensets = gs)$totals
+    expect_equal(b$genset_mwh, 10 * 2500 * 50 * 0.75 / 1e3)
+    expect_equal(b$deaths - a$deaths, b$genset_deaths, tolerance = 1e-9)
+    expect_equal(b$co2_t - a$co2_t, 0.7 * b$genset_mwh, tolerance = 1e-9)
+    expect_equal(b$nox_t - a$nox_t, 6.4 * b$genset_mwh / 1e3, tolerance = 1e-9)
+    expect_gt(b$genset_deaths, 0)
+  }
+  g2 <- impact(app, fips, twh, scenario = "clean", gensets = modifyList(gs, list(hours = 100)))$totals
+  g1 <- impact(app, fips, twh, scenario = "clean", gensets = gs)$totals
+  expect_equal(g2$genset_deaths, 2 * g1$genset_deaths)
+  t4 <- impact(app, fips, twh, scenario = "clean", gensets = modifyList(gs, list(rates = GENSETS$tier4)))$totals
+  expect_lt(t4$genset_deaths, g1$genset_deaths)
+  expect_equal(impact(app, fips, twh, scenario = "clean", gensets = modifyList(gs, list(hours = 0)))$totals$genset_deaths, 0)
+  # generators released at the ground count the same as an on-site plant with the same tonnes at the same height
+  o <- list(co2 = 0, nox = 6.4, so2 = 0.007, pm25 = 0.2, water = 0)
+  os <- impact(app, fips, g1$genset_mwh / 1e6, scenario = "onsite", onsite = o, onsite_height = 10)$totals
+  expect_equal(os$deaths, g1$genset_deaths, tolerance = 1e-9)
+})
+
+test_that("who is exposed works for sources at the site", {
+  skip_if(is.null(app$og)); fips <- app$counties$fips[10]
+  r <- impact(app, fips, 1, scenario = "onsite"); d <- r$ses
+  expect_false(is.null(d)); expect_equal(d$ratio[d$group == "Total"], 1)
+  expect_equal(impact(app, fips, 2, scenario = "onsite")$ses$dpm_ugm3, 2 * d$dpm_ugm3, tolerance = 1e-9)
+  expect_equal(d$deaths[d$group == "Total"], sum(d$deaths[d$group %in% c("below_poverty", "near_poverty", "above_2x_poverty")]), tolerance = 0.5)
+  # grid + generators: group increments add
+  gs <- list(n = 10, kw = 2500, hours = 50, load = 0.75, rates = GENSETS$tier2, height_m = 10)
+  a <- impact(app, fips, 1, scenario = "avg")$ses; b <- impact(app, fips, 1, scenario = "avg", gensets = gs)$ses
+  c0 <- impact(app, fips, 1, scenario = "clean", gensets = gs)$ses
+  expect_equal(b$dpm_ugm3, a$dpm_ugm3 + c0$dpm_ugm3, tolerance = 1e-9)
+  # the site's own cell is used when known
+  cl <- locate_cell(app, app$counties$lon[10], app$counties$lat[10])
+  expect_false(is.null(impact(app, fips, 1, scenario = "onsite", site_cell = cl)$ses))
+})
+
 test_that("the Shiny server runs", {
   Sys.setenv(USLOAD_APP_DATA = file.path(Sys.getenv("USLOAD_DATA"), "app_data.rds"))
   env <- new.env(); sys.source("app.R", envir = env, chdir = FALSE)
@@ -93,7 +133,10 @@ test_that("the Shiny server runs", {
     expect_match(output$vb_twh, "0.788 TWh"); expect_match(output$vb_deaths, "per year"); expect_match(output$vb_water, "ML/yr")
     expect_true(is.list(output$where_tab) || is.character(output$where_tab)); expect_silent(output$cmp_tab); expect_silent(output$mix_tab)
     expect_silent(output$top_tab); expect_match(output$grp_ui$html, "grp_set"); expect_silent(output$ses_plot); expect_silent(output$ses_tab);
-    session$setInputs(grp_set = "Poverty"); expect_match(output$ses_tab, "poverty line"); expect_silent(output$plant_tab); expect_silent(output$mix_plot)
+    session$setInputs(grp_set = "Poverty"); expect_match(output$ses_tab, "poverty line");
+    session$setInputs(gs_on = TRUE, gs_tier = "tier2", gs_n = 10, gs_kw = 2500, gs_hours = 50, gs_load = 75, gs_h = 10)
+    expect_match(output$vb_deaths_sub, "backup generators"); expect_match(output$vb_co2_sub, "generators:")
+    session$setInputs(gs_on = FALSE); expect_silent(output$plant_tab); expect_silent(output$mix_plot)
     expect_match(output$scenario_help$html, "kg CO2 per MWh"); expect_match(output$region_note$html, "Found automatically")
     expect_match(output$options_help$html, "Keep in mind")
     session$setInputs(map_zoom = 9, map_bounds = list(north = 60, south = 10, east = -60, west = -130)); session$elapse(500)

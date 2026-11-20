@@ -4,5 +4,6 @@
 stopifnot(file.exists("data/app_data.rds"))
 rsconnect::writeManifest(appDir = ".", appPrimaryDoc = "app.R",
                          appFiles = c("app.R", "R/calc.R", "methods.html", "data/app_data.rds", "data/build_report.txt",
-                                      if (file.exists("data/harvard.rds")) "data/harvard.rds"))
+                                      if (file.exists("data/harvard.rds")) "data/harvard.rds",
+                                      if (file.exists("data/onsite_groups.rds")) "data/onsite_groups.rds"))
 cat("manifest.json written\n")

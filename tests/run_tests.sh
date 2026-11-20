@@ -17,5 +17,8 @@ cmp "$T/build/isrm_source.csv" "$T/build/isrm_source_chk.csv"
 python3 tests/check_isrm.py "$T/raw" "$T/build"
 Rscript scripts/04_bake_app_data.R
 Rscript scripts/06_blockgroups.R
+python3 scripts/03_isrm_fields.py --isrm "$T/raw/isrm_v1.2.1.ncf" --build "$T/build" --test --sites cells --no-fields --groups "$T/build/bg_cell_groups.csv"
+Rscript scripts/04_bake_app_data.R          # again: attaches build/ses.rds and writes data/onsite_groups.rds
+Rscript -e 'a <- readRDS(file.path(Sys.getenv("USLOAD_DATA"), "app_data.rds")); stopifnot(!is.null(a$ses)); stopifnot(file.exists(file.path(Sys.getenv("USLOAD_DATA"), "onsite_groups.rds")))'
 Rscript tests/test_calc.R
 echo "ALL TESTS PASSED"

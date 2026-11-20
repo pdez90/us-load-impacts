@@ -143,12 +143,30 @@ all_deaths <- sum(colSums(K)[paste0(avg$subrgn, "_avg")] * avg$gen_twh) * b_k
 note("All contiguous-US generation in the data year: %.0f TWh, %.0f PM2.5 deaths/yr at Krewski (RR 1.06 per 10 ug/m3)",
      sum(avg$gen_twh), all_deaths)
 
+# Group exposure for a source in any cell (03 --groups): data/onsite_groups.rds, a separate file read by the app
+f_sg <- file.path(BUILD, "isrm_source_groups.csv")
+if (file.exists(f_sg) && !is.null(onsite_cells)) {
+  sg <- fread(f_sg); assert(nrow(sg) == nrow(cells) && all(sg$cell == cells$cell), "isrm_source_groups.csv does not line up with the cells")
+  gn <- unique(sub("^e_(.*)_(pm25|so2|nox)_l[0-9]+$", "\\1", grep("^e_", names(sg), value = TRUE)))
+  sl <- meta$site_layers; pl3 <- c("pm25", "so2", "nox")
+  # 10 million numbers: stored as log10 x 2000 in integers (0.06% precision; NA = zero) to keep the file small
+  key <- expand.grid(l = seq_along(sl), p = pl3, g = gn, q = c("e", "k"), stringsAsFactors = FALSE)
+  Q <- sapply(seq_len(nrow(key)), function(j) { x <- sg[[sprintf("%s_%s_%s_l%d", key$q[j], key$g[j], key$p[j], sl[key$l[j]])]]
+    out <- rep(NA_integer_, length(x)); ok <- is.finite(x) & x > 0; out[ok] <- as.integer(round(log10(x[ok]) * 2000)); out })
+  og <- list(q = Q, key = key, groups = gn, scale = 2000)
+  saveRDS(og, file.path(DATA, "onsite_groups.rds"), compress = "xz")
+  note("group exposure for on-site sources: %d cells x %d groups -> data/onsite_groups.rds (%.1f MB)",
+       nrow(sg), length(gn), file.size(file.path(DATA, "onsite_groups.rds")) / 2^20)
+}
+
 app <- list(counties = county_sf, regions = region_sf, E = E, K = K, A = A, groups = grp, mix = as.data.frame(mix), onsite = as.data.frame(onsite), onsite_cells = onsite_cells, cells = cell_list, plants = pl,
             meta = list(built = format(Sys.time(), "%Y-%m-%d %H:%M"), synthetic = TEST, egrid = "eGRID2023 rev2",
                         isrm = meta$isrm_file, layer_mid_m = meta$layer_mid_m, site_layers = meta$site_layers,
                         isrm_population = meta$population, mortality_per_100k = meta$pw_baseline_mortality_per_100k,
                         groups = meta$groups, eff_height = as.list(EFF_HEIGHT), all_gen_twh = sum(avg$gen_twh),
                         all_deaths_krewski = all_deaths, qa = c(readLines(file.path(BUILD, "qa_02.txt")), rep_lines)))
+f_ses <- file.path(BUILD, "ses.rds")                      # block-group groups from 06, if it has been run
+if (file.exists(f_ses)) { app$ses <- readRDS(f_ses); note("block-group exposure groups attached from build/ses.rds") }
 saveRDS(app, file.path(DATA, "app_data.rds"), compress = "xz")
 writeLines(app$meta$qa, file.path(DATA, "build_report.txt"))
 msg("wrote data/app_data.rds (%.1f MB)", file.size(file.path(DATA, "app_data.rds")) / 1e6)

@@ -1908,22 +1908,25 @@
   },
   "files": {
     "app.R": {
-      "checksum": "ac93e6be2590551fdc17cb73171360cd"
+      "checksum": "f1b37c05eca4c51d616469f9105b4b8b"
     },
     "data/app_data.rds": {
-      "checksum": "d430f98ecf5414e12c5fa7f6ee00dd20"
+      "checksum": "e2f637e1fca7864d63965fbd15885f2d"
     },
     "data/build_report.txt": {
-      "checksum": "adc133fbc34dec589f5765d27e86af20"
+      "checksum": "ef3c1e3fbfd94378b179381a73ed4487"
     },
     "data/harvard.rds": {
       "checksum": "3209ce56390c55c7cc786b569b552362"
     },
+    "data/onsite_groups.rds": {
+      "checksum": "8574081edce78d57094d4d1f483bfdeb"
+    },
     "methods.html": {
-      "checksum": "8f44f0ca8568c81930151af10d01fdd8"
+      "checksum": "f6eee9cedc5f6d38e502276079abf62d"
     },
     "R/calc.R": {
-      "checksum": "6375ebfb08548e8b6a4176720fdd21c1"
+      "checksum": "6074993fa060a95ed1674ba97cff7f31"
     }
   },
   "users": null

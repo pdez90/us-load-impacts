@@ -6,6 +6,8 @@
 #      data-raw/acs/acsdt5y2023-{b03002,b19013,c17002,b15003}.dat  (01b: ACS 5-year 2023)
 #      data/app_data.rds                             (04)
 # Out: build/bg_cells.csv     block group x ISRM cell overlap weights
+#      build/bg_cell_groups.csv  people of each group in each ISRM cell (p_) and x baseline mortality (d_), for 03 --groups
+#      build/ses.rds          the group matrices, picked up by 04 when it rebuilds app_data
 #      build/bg_demog.csv     block-group population, race/ethnicity, income, poverty, education
 #      data/app_data.rds      adds $ses: exposure and mortality-weighted fields for each group
 #      build/bg_report.txt
@@ -117,12 +119,17 @@ Gd <- P[, lapply(.SD, function(x) sum(x * w * mort)), by = cell, .SDcols = uniqu
 toM <- function(G) { M <- matrix(0, length(groups), nrow(cells), dimnames = list(names(groups), NULL)); M[, G$cell] <- t(as.matrix(G[, groups, with = FALSE])); M }
 Gp <- toM(Gp); Gd <- toM(Gd)
 pop_g <- rowSums(Gp)
+# per-cell group populations, for scripts/03_isrm_fields.py --groups (exposure by group from a source in any cell)
+cg_out <- data.table(cell = seq_len(nrow(cells)) - 1L)
+for (g in names(groups)) { set(cg_out, j = paste0("p_", g), value = signif(Gp[g, ], 6)); set(cg_out, j = paste0("d_", g), value = signif(Gd[g, ], 6)) }
+fwrite(cg_out, file.path(BUILD, "bg_cell_groups.csv"))
 X <- (Gp %*% Fm) / pop_g                               # population-weighted mean dPM2.5 per unit field
 M <- Gd %*% Fm                                         # sum of people x baseline mortality x dPM2.5 (x beta = deaths)
 assert(abs(pop_g[["Total"]] / sum(D$pop) - 1) < 1e-6, "population not conserved in the block-group step")
 ses <- list(exposure = X, mort_weighted = M, pop = pop_g, labels = labels[names(groups)], income_cuts = cut_at,
             source = "ACS 2019-2023 5-year estimates; 2023 cartographic block groups; ISRM cells area-weighted")
 
+saveRDS(ses, file.path(BUILD, "ses.rds"))                 # 04 attaches this when it rebuilds app_data
 app <- readRDS(file.path(DATA, "app_data.rds"))
 assert(all(colnames(Fm) %in% colnames(app$K)) || all(colnames(app$K) %in% colnames(Fm)), "fields do not match app_data")
 app$ses <- ses; app$meta$ses_built <- format(Sys.time(), "%Y-%m-%d %H:%M")

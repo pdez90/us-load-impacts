@@ -22,6 +22,16 @@ ONSITE <- list(
   sc_scr = list(label = "Simple-cycle turbines, SCR",       co2 = 530, nox = 0.04, so2 = 0.003, pm25 = 0.03, water = 0),
   sc_dln = list(label = "Simple-cycle turbines, no SCR",    co2 = 530, nox = 0.15, so2 = 0.003, pm25 = 0.03, water = 0))
 
+# Backup diesel generators, kg per MWh of generator output (= g/kWh).
+# NOx and PM2.5: EPA limits for engines of 560 kW and over. Tier 2 (40 CFR 89.112): NMHC+NOx 6.4, PM 0.20; the
+# whole NMHC+NOx limit is counted as NOx, an upper bound. Tier 4 final generator sets (40 CFR 1039.101): NOx 0.67,
+# PM 0.03. Engines used only for emergencies are exempt from Tier 4, so most backup units are Tier 2.
+# SO2: ultra-low-sulfur diesel (15 ppm) with AP-42 section 3.4's factor, 8.09e-3 x S(%) lb/hp-hr -> 0.007.
+# CO2: AP-42 3.4 average fuel use, 7,000 Btu/hp-hr (9.39 MMBtu/MWh), x 73.96 kg CO2/MMBtu for distillate -> about 700.
+GENSETS <- list(
+  tier2 = list(label = "EPA Tier 2 (typical for emergency backup)", nox = 6.4, pm25 = 0.20, so2 = 0.007, co2 = 700),
+  tier4 = list(label = "EPA Tier 4 final (generator sets)",          nox = 0.67, pm25 = 0.03, so2 = 0.007, co2 = 700))
+
 SCENARIOS <- c("Grid: the plants that respond to new load" = "nb", "Grid: average of all plants" = "avg",
                "Grid: a mix you set yourself" = "custom",
                "On-site gas generation" = "onsite", "Carbon-free power matched every hour" = "clean")
@@ -46,7 +56,7 @@ OPTION_INFO <- list(
   onsite = list(
     what = "The facility generates its own power on site with gas turbines or engines, as some large data centers now do. Emissions are released in the host county, at the rates you enter.",
     use = "Use it for behind-the-meter gas plants, with the emission rates from the air permit.",
-    caveat = "Totals only, no downwind map. The default rates are illustrative. Backup diesel generators are not included."),
+    caveat = "No downwind map; totals and who is exposed only. The default rates are illustrative. Backup diesel generators are separate: add them below, with any supply option."),
   clean = list(
     what = "Every hour of the load is matched by new carbon-free generation (wind, solar, storage, nuclear), so there are no operational emissions and no power-plant water use.",
     use = "Use it as the best case, or to see what on-site water use alone amounts to.",
@@ -109,7 +119,26 @@ grid_mix <- function(app, subrgn, scenario, shares = NULL) {
 #' @param site_cell for on-site generation: index of the grid cell holding the site (see locate_cell)
 #' @param shares for scenario "custom": named fuel shares (see default_shares); NULL uses the region's current mix.
 #' @return list with totals (one-row data.frame), county (data.frame or NULL), groups (named vector or NULL), w (field weights)
-impact <- function(app, fips, twh, it_twh = twh, scenario = "nb", subrgn = NULL, loss = 0.05, clean_share = 0,
+#' @param gensets backup diesel generators: list(n, kw, hours, load (0-1), rates = one of GENSETS, height_m), or NULL.
+#'   Their emissions are released in the site's cell and added to every scenario; reported separately as genset_*.
+impact <- function(app, fips, twh, ..., beta = CRF$krewski$beta, site_cell = NULL, gensets = NULL) {
+  r <- impact_supply(app, fips, twh, ..., beta = beta, site_cell = site_cell)
+  z <- r$totals; z$genset_mwh <- 0; z$genset_co2_t <- 0; z$genset_nox_t <- 0; z$genset_pm25_t <- 0; z$genset_so2_t <- 0; z$genset_deaths <- 0
+  if (!is.null(gensets) && gensets$n > 0 && gensets$kw > 0 && gensets$hours > 0) {
+    mwh <- gensets$n * gensets$kw * gensets$hours * gensets$load / 1e3
+    q <- gensets$rates; t <- c(pm25 = q$pm25, so2 = q$so2, nox = q$nox) * mwh / 1e3      # kg/MWh x MWh -> tonnes
+    ls <- local_source(app, t, gensets$height_m, site_cell, match(fips, app$counties$fips), beta)
+    z$genset_mwh <- mwh; z$genset_co2_t <- q$co2 * mwh / 1e3
+    z$genset_nox_t <- t[["nox"]]; z$genset_pm25_t <- t[["pm25"]]; z$genset_so2_t <- t[["so2"]]; z$genset_deaths <- ls$deaths
+    z$co2_t <- z$co2_t + z$genset_co2_t; z$nox_t <- z$nox_t + t[["nox"]]; z$so2_t <- z$so2_t + t[["so2"]]; z$pm25_t <- z$pm25_t + t[["pm25"]]
+    z$deaths <- z$deaths + ls$deaths; z$pw_ugm3 <- z$pw_ugm3 + ls$e / sum(app$counties$pop)
+    r$ses <- add_ses(r$ses, ls$ses)
+  }
+  r$totals <- z; r
+}
+
+#' The electricity supply alone (no backup generators); see impact().
+impact_supply <- function(app, fips, twh, it_twh = twh, scenario = "nb", subrgn = NULL, loss = 0.05, clean_share = 0,
                    beta = CRF$krewski$beta, wue = 0, onsite = ONSITE$sc_scr, onsite_height = 60, shares = NULL, site_cell = NULL) {
   stopifnot(fips %in% app$counties$fips, loss >= 0, loss < 1, clean_share >= 0, clean_share <= 1)
   i <- match(fips, app$counties$fips)
@@ -123,20 +152,12 @@ impact <- function(app, fips, twh, it_twh = twh, scenario = "nb", subrgn = NULL,
   if (scenario == "onsite") {
     mwh <- twh * 1e6
     t <- c(pm25 = onsite$pm25, so2 = onsite$so2, nox = onsite$nox) * mwh / 1e3      # tonnes/yr
-    sl <- app$meta$site_layers + 1                            # releases above the highest stored layer use that layer
-    w <- layer_weights(min(onsite_height, app$meta$layer_mid_m[max(sl)]), app$meta$layer_mid_m)[sl]
-    # the site's own grid cell when known, otherwise the cell at the county's interior point
-    o <- if (!is.null(site_cell) && !is.na(site_cell) && !is.null(app$onsite_cells)) app$onsite_cells[site_cell, ] else as.data.frame(app$onsite)[i, ]
-    k <- e <- 0
-    for (p in names(t)) for (l in seq_along(w)) {
-      k <- k + t[[p]] * w[l] * o[[sprintf("k_%s_l%d", p, app$meta$site_layers[l])]]
-      e <- e + t[[p]] * w[l] * o[[sprintf("e_%s_l%d", p, app$meta$site_layers[l])]]
-    }
+    ls <- local_source(app, t, onsite_height, site_cell, i, beta)
     z$gen_twh <- twh; z$co2_t <- onsite$co2 * mwh / 1e3
     z$nox_t <- t[["nox"]]; z$so2_t <- t[["so2"]]; z$pm25_t <- t[["pm25"]]
-    z$deaths <- beta * k; z$pw_ugm3 <- e / pop_total
+    z$deaths <- ls$deaths; z$pw_ugm3 <- ls$e / pop_total
     z$water_gen_cons_ML <- onsite$water * mwh / 1e6
-    return(list(totals = z, county = NULL, groups = NULL, w = NULL))
+    return(list(totals = z, county = NULL, groups = NULL, ses = ls$ses, w = NULL))
   }
   g <- grid_mix(app, subrgn, scenario, shares); m <- g$rates; w <- g$w
   gen <- twh / (1 - loss) * (1 - clean_share); mwh <- gen * 1e6
@@ -166,6 +187,47 @@ ses_values <- function(app, w, gen, beta) {
   de <- beta * as.vector(s$mort_weighted[, names(w), drop = FALSE] %*% w) * gen
   data.frame(group = rownames(s$exposure), label = unname(s$labels[rownames(s$exposure)]), pop = unname(s$pop),
              dpm_ugm3 = ex, ratio = if (ex[1] > 0) ex / ex[1] else NA_real_, deaths = de, deaths_per_million = de / unname(s$pop) * 1e6)
+}
+
+#' A source released at the site (on-site power plant or backup generators).
+#' @param t tonnes per year, named pm25, so2, nox
+#' @param site_cell grid-cell row of the site (locate_cell), or NULL to use the cell at the county's interior point (row i)
+#' @return list(deaths, e = sum of people x ug/m3, ses = data.frame as ses_values() or NULL)
+local_source <- function(app, t, height, site_cell, i, beta) {
+  sl <- app$meta$site_layers + 1                            # releases above the highest stored layer use that layer
+  w <- layer_weights(min(height, app$meta$layer_mid_m[max(sl)]), app$meta$layer_mid_m)[sl]
+  # the site's own grid cell when known, otherwise the cell at the county's interior point
+  own <- !is.null(site_cell) && !is.na(site_cell) && !is.null(app$onsite_cells)
+  o <- if (own) app$onsite_cells[site_cell, ] else as.data.frame(app$onsite)[i, ]
+  k <- e <- 0
+  for (p in names(t)) for (l in seq_along(w)) {
+    k <- k + t[[p]] * w[l] * o[[sprintf("k_%s_l%d", p, app$meta$site_layers[l])]]
+    e <- e + t[[p]] * w[l] * o[[sprintf("e_%s_l%d", p, app$meta$site_layers[l])]]
+  }
+  ses <- NULL; og <- app$og
+  if (!is.null(og) && !is.null(app$ses)) {
+    cell <- if (own) site_cell else app$onsite$cell[i] + 1
+    if (is.finite(cell) && cell >= 1 && cell <= nrow(og$q)) {
+      v <- 10^(og$q[cell, ] / og$scale); v[is.na(v)] <- 0                 # this cell's per-tonne values (see 04_bake_app_data.R)
+      wt <- w[og$key$l] * unname(t[og$key$p]); wt[is.na(wt)] <- 0
+      agg <- function(q) { j <- og$key$q == q; tapply(v[j] * wt[j], factor(og$key$g[j], levels = og$groups), sum) }
+      eg <- as.vector(agg("e")); kg <- as.vector(agg("k"))
+      g <- rownames(app$ses$exposure); j <- match(g, og$groups)
+      if (!anyNA(j)) {
+        pop <- unname(app$ses$pop); ex <- eg[j] / pop; de <- beta * kg[j]
+        ses <- data.frame(group = g, label = unname(app$ses$labels[g]), pop = pop, dpm_ugm3 = ex,
+                          ratio = if (ex[1] > 0) ex / ex[1] else NA_real_, deaths = de, deaths_per_million = de / pop * 1e6)
+      }
+    }
+  }
+  list(deaths = beta * k, e = e, ses = ses)
+}
+
+#' Add two group tables (same groups), recomputing the ratios.
+add_ses <- function(a, b) {
+  if (is.null(b)) return(a); if (is.null(a)) return(b)
+  a$dpm_ugm3 <- a$dpm_ugm3 + b$dpm_ugm3; a$deaths <- a$deaths + b$deaths
+  a$ratio <- if (a$dpm_ugm3[1] > 0) a$dpm_ugm3 / a$dpm_ugm3[1] else NA_real_; a$deaths_per_million <- a$deaths / a$pop * 1e6; a
 }
 
 #' Which block-group rows go together on the exposure chart.

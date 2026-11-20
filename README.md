@@ -67,6 +67,16 @@ FracTracker Alliance's Open U.S. Data Centers Tracker is added with `python3 scr
 Rscript scripts/06_blockgroups.R    # about 2 minutes
 ```
 
+For on-site power and backup generators, "Who is exposed" needs one more pass of the matrix: for every grid cell, the exposure of each group per tonne released there. It reads `build/bg_cell_groups.csv` from step 06 and writes `data/onsite_groups.rds` (about 15-20 MB):
+
+```bash
+python3 scripts/03_isrm_fields.py --isrm data-raw/isrm_v1.2.1.ncf --sites cells --no-fields --groups build/bg_cell_groups.csv
+Rscript scripts/04_bake_app_data.R  # rebuilds app_data (keeping the block-group groups) and writes onsite_groups.rds
+Rscript scripts/05_write_manifest.R
+```
+
+Backup diesel generators are an option in the app's sidebar, added to any supply option: count, kW, hours run per year, load while running, EPA Tier 2 or Tier 4 final emission rates, released at the site.
+
 ## Run and deploy
 
 ```r

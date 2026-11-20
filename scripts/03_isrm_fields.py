@@ -220,6 +220,8 @@ def main():
     ap.add_argument("--sites", choices=["cells", "county", "none"], default="cells",
                     help="where to compute per-tonne source weights for on-site power: every grid cell (default; also writes the county file), county points only, or nowhere")
     ap.add_argument("--no-fields", action="store_true", help="skip the plant fields (only source weights)")
+    ap.add_argument("--groups", default=None, help="build/bg_cell_groups.csv from 06_blockgroups.R: with --sites cells, also write "
+                    "isrm_source_groups.csv, each site cell's per-tonne exposure and deaths for every population group")
     ap.add_argument("--test", action="store_true", help="skip the plausibility checks that only hold for the real ISRM")
     a = ap.parse_args()
     if not os.path.exists(a.isrm): die("%s not found (run scripts/01_download.sh)" % a.isrm)
@@ -285,6 +287,14 @@ def main():
     if not a.test and not (2.4e8 < pop.sum() < 3.6e8): die("population %.3g is not a contiguous-US total" % pop.sum())
     if not a.test and mids != sorted(mids): die("layer heights not increasing: %s" % mids)
     mw = pop * mort * mort_scale                             # baseline deaths per cell per year
+    GP = GD = None; gsets = []
+    if a.groups:
+        if a.sites != "cells": die("--groups needs --sites cells")
+        gc = read_csv(a.groups)
+        if len(gc) != n or any(int(r["cell"]) != i for i, r in enumerate(gc)): die("%s does not line up with the ISRM cells" % a.groups)
+        gsets = [c[2:] for c in gc[0] if c.startswith("p_")]
+        GP = np.array([[fnum(r["p_" + g]) for g in gsets] for r in gc]); GD = np.array([[fnum(r["d_" + g]) for g in gsets] for r in gc])
+        log("population groups for site cells: %s" % ", ".join(gsets))
 
     # ---- which rows are needed ------------------------------------------------------------------
     tag = "_" + a.tag if a.tag else ""
@@ -336,6 +346,8 @@ def main():
     F = np.zeros((len(cols), n))
     pkeys = list(PATHWAYS)                                   # pm25_t, so2_t, nox_t
     Es = np.zeros((len(counties), len(site_layers), len(pkeys))); Ks = np.zeros_like(Es)
+    if GP is not None:
+        EG = np.zeros((len(counties), len(site_layers), len(pkeys), len(gsets)), dtype=np.float32); KG = np.zeros_like(EG)
     src.open(); done = 0
     for key in keys:
         var, li, s = key; v = V[var]; isz = np.dtype(v["dtype"]).itemsize
@@ -345,6 +357,9 @@ def main():
             pi = pkeys.index([k for k, vv in PATHWAYS.items() if vv == var][0])
             e, k = float(row @ pop) * UGS_PER_TPY, float(row @ mw) * UGS_PER_TPY
             for i in site[key]: Es[i, li, pi] = e; Ks[i, li, pi] = k
+            if GP is not None:
+                eg, kg = (row @ GP) * UGS_PER_TPY, (row @ GD) * UGS_PER_TPY
+                for i in site[key]: EG[i, li, pi] = eg; KG[i, li, pi] = kg
         done += 1
         if not src.is_zip and done % 20000 == 0: log("  ... %d of %d rows" % (done, len(keys)))
     if not np.isfinite(F).all() or (F < -1e-12).any(): die("non-finite or negative concentrations")
@@ -378,6 +393,16 @@ def main():
         kx, ky = lcc(np.array([fnum(c["lon"]) for c in cp]), np.array([fnum(c["lat"]) for c in cp])); kc = locate(kx, ky, W, S, E, N)
         log("%d of %d county points fall in a grid cell" % ((kc >= 0).sum(), len(cp)))
         write_sources("isrm_source%s.csv" % tag, [c["fips"] for c in cp], kc, kc)
+    if GP is not None:                                       # one row per site cell: e_<group>_<pollutant>_l<layer>, k_... (per tonne/yr)
+        with open(os.path.join(a.build, "isrm_source_groups%s.csv" % tag), "w", newline="") as f:
+            w = csv.writer(f)
+            hdr = [(q, g, pi, li) for q in ("e", "k") for g in range(len(gsets)) for li in range(len(site_layers)) for pi in range(len(pkeys))]
+            w.writerow(["cell"] + ["%s_%s_%s_l%d" % (q, gsets[g], short[pkeys[pi]], site_layers[li]) for q, g, pi, li in hdr])
+            for i in range(n):
+                w.writerow([i] + ["%.4g" % (EG if q == "e" else KG)[i, li, pi, g] for q, g, pi, li in hdr])
+        log("wrote isrm_source_groups%s.csv: %d site cells x %d groups" % (tag, n, len(gsets)))
+    if a.no_fields:                                          # source weights only: keep the metadata from the full run
+        log("--no-fields: %s left as it was" % ("isrm_meta%s.json" % tag)); return
     meta = {"isrm_file": os.path.basename(a.isrm), "cdf_version": H["version"], "n_cells": int(n), "sr_layers": layers,
             "layer_mid_m": mids, "sr_variables": sr_vars, "cell_variables": cell_vars, "used": want,
             "pathways": PATHWAYS, "groups": gnames, "population": float(pop.sum()),
