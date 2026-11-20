@@ -1,25 +1,25 @@
 VIRGINIA DATA CENTER AIR PERMITS (DEQ list of 194; 179 read, 178 current after replaced permits are dropped)
   engines: 10,650 in 165 permits with an equipment list read; rated 26.7 GW
-  located: 108 by geocoded address, 70 at the county point
+  located: 113 by geocoded address (5 of them just over the listed county's line), 65 at the county point (4 owner's office addresses)
 PERMITTED MAXIMUM (every site at its annual limits; short tons/yr)
-  NOx 13,414  PM2.5 855   ->  30.3 PM2.5 deaths/yr (Krewski)
-  Northern Virginia (Loudoun, Prince William, Fairfax and cities): NOx 10,570 tons/yr, 27.6 deaths/yr
+  NOx 13,414  PM2.5 855   ->  30.6 PM2.5 deaths/yr (Krewski)
+  Northern Virginia (Loudoun, Prince William, Fairfax and cities): NOx 10,570 tons/yr, 27.8 deaths/yr
 ROUTINE TESTING (permits that give engines, kW and testing hours: 65 of 178)
-  NOx 1,937 tonnes/yr -> 3.96 deaths/yr; the same permits at their limits: 15.2 deaths/yr (testing is 26% of the limit)
+  NOx 1,937 tonnes/yr -> 3.98 deaths/yr; the same permits at their limits: 15.3 deaths/yr (testing is 26% of the limit)
 BY LOCALITY (permitted maximum)
   Loudoun Co.           87 permits  5,497 engines  13.8 GW  NOx  6,992 tons/yr  19.6 deaths/yr
-  Prince William Co.    28 permits  1,745 engines   4.5 GW  NOx  2,156 tons/yr  4.4 deaths/yr
+  Prince William Co.    28 permits  1,745 engines   4.5 GW  NOx  2,156 tons/yr  4.6 deaths/yr
   Fairfax Co.           27 permits    533 engines   1.2 GW  NOx  1,135 tons/yr  3.1 deaths/yr
-  Henrico Co.            8 permits    914 engines   2.3 GW  NOx    741 tons/yr  0.6 deaths/yr
+  Henrico Co.            8 permits    914 engines   2.3 GW  NOx    741 tons/yr  0.7 deaths/yr
   Mecklenburg Co.        7 permits    661 engines   1.4 GW  NOx    684 tons/yr  0.5 deaths/yr
   Manassas City          3 permits    213 engines   0.5 GW  NOx    287 tons/yr  0.4 deaths/yr
   Culpeper Co.           3 permits    168 engines   0.5 GW  NOx    286 tons/yr  0.4 deaths/yr
   Fauquier Co.           3 permits     48 engines   0.1 GW  NOx    191 tons/yr  0.2 deaths/yr
 WHO IS EXPOSED (all sites at their limits; exposure relative to everyone in the contiguous US)
   White (non-Latino)           x0.81
-  Black (non-Latino)           x1.39
-  Asian (non-Latino)           x2.40
-  Latino                       x0.90
+  Black (non-Latino)           x1.38
+  Asian (non-Latino)           x2.39
+  Latino                       x0.91
   Lowest-income fifth          x0.22
-  Highest-income fifth         x3.00
+  Highest-income fifth         x2.99
   Below the poverty line       x0.58

@@ -41,9 +41,21 @@ G <- if (file.exists("data-raw/permits/va/va_permits_geocoded.csv")) fread("data
 P[, `:=`(lon = NA_real_, lat = NA_real_, placed = "county point")]
 if (!is.null(G)) {
   P[G[match == "Match"], on = "registration", `:=`(glon = as.numeric(i.lon), glat = as.numeric(i.lat), gf = paste0(i.state_fips, i.county_fips))]
-  ok <- !is.na(P$glon) & P$gf == P$fips                     # a corporate mailing address lands in the wrong county
-  P[ok, `:=`(lon = glon, lat = glat, placed = "geocoded address")]
-  P[!ok & !is.na(glon), placed := "county point (address geocoded outside the permit's county)"]
+  # Owners' offices that some permits give before the site (Amazon's Herndon addresses) are never used.
+  # A point in a neighbouring county is kept if it is within 10 km of the county DEQ lists: DEQ's locality
+  # can be the mailing city (Manassas) or the wrong side of a line (Capital One's West Creek campus is in Goochland).
+  office <- grepl("13820 SUNRISE VALLEY|13200 WOODLAND PARK|410 TERRY AVE", toupper(G$matched_address[match(P$registration, G$registration)]))
+  near <- rep(FALSE, nrow(P)); has <- which(!is.na(P$glon))
+  if (length(has)) {
+    pts <- st_transform(st_as_sf(P[has], coords = c("glon", "glat"), crs = 4326), LCC_PROJ)
+    pol <- st_transform(app$counties[match(P$fips[has], app$counties$fips), ], LCC_PROJ)
+    near[has] <- as.numeric(st_distance(pts, pol, by_element = TRUE)) <= 10000
+  }
+  same <- !is.na(P$glon) & P$gf == P$fips
+  ok <- !is.na(P$glon) & !office & (same | near)
+  P[ok, `:=`(lon = glon, lat = glat, placed = ifelse(same[ok], "geocoded address", "geocoded address (neighbouring county)"))]
+  rej <- which(!ok & !is.na(P$glon))
+  P[rej, placed := ifelse(office[rej], "county point (address is the owner's office)", "county point (address geocoded far from the permit's county)")]
 }
 P[, i := match(fips, app$counties$fips)]
 P[, cell := ifelse(is.na(lon), app$onsite$cell[i] + 1, mapply(function(x, y) locate_cell(app, x, y), lon, lat))]
@@ -75,7 +87,8 @@ nova <- c("51107", "51153", "51059", "51683", "51685", "51600", "51610", "51013"
 say("VIRGINIA DATA CENTER AIR PERMITS (DEQ list of 194; %d read, %d current after replaced permits are dropped)", n_all, nrow(P))
 say("  engines: %s in %d permits with an equipment list read; rated %.1f GW", format(sum(num(P$engines), na.rm = TRUE), big.mark = ","),
     sum(num(P$engines) > 0, na.rm = TRUE), sum(num(P$total_ekw), na.rm = TRUE) / 1e6)
-say("  located: %d by geocoded address, %d at the county point", sum(P$placed == "geocoded address"), sum(P$placed != "geocoded address"))
+say("  located: %d by geocoded address (%d of them just over the listed county's line), %d at the county point (%d owner's office addresses)",
+    sum(grepl("^geocoded", P$placed)), sum(grepl("neighbouring", P$placed)), sum(grepl("^county", P$placed)), sum(grepl("office", P$placed)))
 say("PERMITTED MAXIMUM (every site at its annual limits; short tons/yr)")
 say("  NOx %s  PM2.5 %s   ->  %.1f PM2.5 deaths/yr (Krewski)", format(round(sum(num(P$nox_tpy), na.rm = TRUE)), big.mark = ","),
     format(round(sum(P$pm25, na.rm = TRUE)), big.mark = ","), sum(P$deaths_max, na.rm = TRUE))
@@ -107,7 +120,7 @@ par(mar = c(0.5, 0.5, 2.5, 0.5))
 plot(st_geometry(va), col = "grey96", border = "grey75", main = "Virginia data center generator permits: permitted NOx (circle area ~ tons/yr)")
 o <- P[is.finite(num(nox_tpy))][order(-num(nox_tpy))]
 points(o$lon, o$lat, pch = 21, cex = 0.4 + 2.2 * sqrt(num(o$nox_tpy) / max(num(o$nox_tpy))),
-       bg = adjustcolor(ifelse(o$placed == "geocoded address", "#c0392b", "#7f8c8d"), 0.5), col = "grey30", lwd = 0.4)
+       bg = adjustcolor(ifelse(grepl("^geocoded", o$placed), "#c0392b", "#7f8c8d"), 0.5), col = "grey30", lwd = 0.4)
 legend("bottomleft", c("site address", "county point (address not located)"), pt.bg = adjustcolor(c("#c0392b", "#7f8c8d"), 0.6),
        pch = 21, pt.cex = 1.3, bty = "n", cex = 0.8)
 dev.off()

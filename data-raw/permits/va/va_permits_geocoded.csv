@@ -1,4 +1,9 @@
 registration,input,match,match_type,matched_address,lon,lat,state_fips,county_fips
+11790-1,"5978 Windswept Blvd, Wise, VA, ",Match,Exact,"5978 WINDSWEPT BLVD, WISE, VA, 24293",-82.526258087747,36.976245406565,51,195
+21527-15,"101 Herbert Drive, Boydton, VA, 23917",No_Match,,,,,,
+21527-7,"101 Herbert Drive, Boydton, VA, 23917",No_Match,,,,,,
+30142-2,"250 Burlington Drive, Clarksville, VA, 23927",Match,Exact,"250 BURLINGTON DR, CLARKSVILLE, VA, 23927",-78.549837800307,36.601752352763,51,117
+41064-8,"18155 Technology Drive, Culpeper, VA, 22701",No_Match,,,,,,
 51232-16,"6000 Technology Boulevard, Sandston, VA, ",No_Match,,,,,,
 52173-1,"11751 Meadowville Lane, Chester, VA, 23836",Match,Exact,"11751 MEADOWVILLE LN, CHESTER, VA, 23836",-77.331348123131,37.363578510282,51,041
 52221-9,"8011 Villa Park Drive, Richmond, VA, 23228",Match,Exact,"8011 VILLA PARK DR, RICHMOND, VA, 23228",-77.463743590601,37.628401260482,51,087
@@ -12,6 +17,7 @@ registration,input,match,match_type,matched_address,lon,lat,state_fips,county_fi
 52973-2,"101 Herbert Drive, Boydton, VA, 23917",No_Match,,,,,,
 53071-1,"101 Herbert Drive, Boydton, VA, 23917",No_Match,,,,,,
 53072-1,"58 and Ridge Road, Boydton, VA, 23917",Match,Non_Exact,"58 RIDGE RD, BOYDTON, VA, 23917",-78.377606198212,36.696133306444,51,117
+53086-2,"39 Commerce Drive, Boydton, VA, 23917",No_Match,,,,,,
 53197-2,"12174 Washington Highway, Ashland, VA, ",Match,Exact,"12174 WASHINGTON HWY, ASHLAND, VA, 23005",-77.471079532897,37.737393524016,51,085
 53198-1,"92 and Butler Farm Road, Chase City, VA, 23927",Match,Non_Exact,"92 BUTLER FARM RD, CHASE CITY, VA, 23924",-78.468795460885,36.769861670831,51,117
 53259-1,"3250 East Williamsburg Road, Sandston, VA, 23150",Match,Non_Exact,"3250 OLD WILLIAMSBURG RD, SANDSTON, VA, 23150",-77.26163734093,37.516825538472,51,087
@@ -84,6 +90,13 @@ registration,input,match,match_type,matched_address,lon,lat,state_fips,county_fi
 74112-5,"11680 Hayden Road, Manassas, VA, 20109",Match,Exact,"11680 HAYDEN RD, MANASSAS, VA, 20109",-77.542927380772,38.77275118691,51,153
 74114-3,"21350 Pacific Boulevard, , VA, 20166",Match,Exact,"21350 PACIFIC BLVD, STERLING, VA, 20166",-77.436245944792,39.025978522787,51,107
 74115-4,"13200 Woodland Park Rd., Herndon, VA, 20171",Match,Exact,"13200 WOODLAND PARK RD, HERNDON, VA, 20171",-77.40293629022,38.954410583014,51,059
+74118-4,"10400 Harry J Parrish Blvd, Manassas, VA, 20110",No_Match,,,,,,
+74120-7,"44245 Gigabit Plaza, Ashburn, VA, 20147",No_Match,,,,,,
+74121-2,"45950 Pathfinder Way, , VA, 20164",No_Match,,,,,,
+74126-4,"44540 Round Table Plaza, Ashburn, VA, 20147",No_Match,,,,,,
+74127-3,"6872 Watson Court, Warrenton, VA, 20186",Match,Non_Exact,"6872 WATSON CT, WARRENTON, VA, 20187",-77.675033333745,38.746629149656,51,061
+74129-3,"10261 Tanner Way, Manassas, VA, 20110",No_Match,,,,,,
+74130-2,"12369 Sunrise Valley Drive, Reston, VA, 20191",Match,Exact,"12369 SUNRISE VALLEY DR, RESTON, VA, 20191",-77.373261408367,38.950118880422,51,059
 74141-3,"22280 Randolph Drive, , VA, 20164",No_Match,,,,,,
 74147-1,"21830 Uunet Way, Ashburn, VA, 20147",Match,Non_Exact,"21830 UUNET DR, ASHBURN, VA, 20147",-77.473938203602,39.012378147379,51,107
 74150-3,"20935 Loudoun County Parkway, Ashburn, VA, 20147",Match,Exact,"20935 LOUDOUN COUNTY PKWY, ASHBURN, VA, 20147",-77.449259996468,39.037177065405,51,107
