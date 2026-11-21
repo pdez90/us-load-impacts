@@ -154,9 +154,6 @@ test_that("the Shiny server runs", {
     session$setInputs(grp_set = "Poverty"); expect_match(output$ses_tab, "poverty line");
     session$setInputs(gs_on = TRUE, gs_tier = "tier2", gs_n = 10, gs_kw = 2500, gs_hours = 50, gs_load = 75, gs_h = 10)
     expect_match(output$vb_deaths_sub, "backup generators"); expect_match(output$vb_co2_sub, "generators:")
-    session$setInputs(gs_n = 12, gs_kw = 2500, nz_enc = "central", nz_at_once = 2, nz_cool = "loud", nz_home = 400)
-    expect_match(output$nz_tab, "Outage"); expect_match(output$nz_tab, "Cooling"); expect_silent(output$nz_plot)
-    expect_match(output$nz_note$html, "screening"); expect_match(output$nz_basis$html, "12 x 2,500 kW")
     session$setInputs(gs_on = FALSE); expect_silent(output$plant_tab); expect_silent(output$mix_plot)
     expect_match(output$scenario_help$html, "kg CO2 per MWh"); expect_match(output$region_note$html, "Found automatically")
     expect_match(output$options_help$html, "Keep in mind")

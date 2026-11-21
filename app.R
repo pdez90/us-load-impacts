@@ -91,9 +91,9 @@ hv_ui <- function() {
     layout_columns(col_widths = c(7, 5),
       card(card_header("PM2.5 from the fleet's electricity, by county (annual mean, ng/m3)"), leafletOutput("hv_map", height = 430)),
       card(card_header("Where the electricity is used, and where the deaths fall"), plotOutput("hv_state_plot", height = 430, fill = FALSE))),
-    card(card_header("By balancing authority: their CO2, this tool's CO2, and the additions"), DTOutput("hv_ba_tab")),
+    table_card("By balancing authority: their CO2, this tool's CO2, and the additions", DTOutput("hv_ba_tab")),
     layout_columns(col_widths = c(7, 5),
-      card(card_header("By state"), DTOutput("hv_state_tab")),
+      table_card("By state", DTOutput("hv_state_tab")),
       card(card_header("Exposure by race and ethnicity"), plotOutput("hv_grp_plot", height = 260, fill = FALSE),
            helpText("Population-weighted PM2.5 from the fleet, relative to the average for everyone. Populations are the model's own, from about 2010."))),
     div(class = "small text-muted", style = "max-width: 1000px",
@@ -103,6 +103,10 @@ hv_ui <- function() {
       p(sprintf("Their totals: github.com/gianguidi/hyperscale-emissions, public/data_BA_level.csv (commit %s). Built %s. Full tables are in analysis/output/.",
                 substr(as.character(hv$source), 1, 7), hv$built))))
 }
+
+# A card for a data table: sized to its content (not stretched to fill the page), so notes below the table
+# never overlap its rows.
+table_card <- function(title, ...) card(fill = FALSE, card_header(title), card_body(fillable = FALSE, ...))
 
 va_ui <- function() {
   if (is.null(va)) return(card(card_header("Not built yet"), p("Run analysis/05_va_permits.R and then analysis/06_va_noise.R (see 'Virginia data center air permits' in README.md), then restart the app.")))
@@ -145,7 +149,7 @@ va_ui <- function() {
            helpText("Air: population-weighted PM2.5 from every site at its permitted maximum, relative to everyone in the contiguous US.",
                     "Noise: share of people within 45 dB(A) of cooling (central case), relative to Virginia's share.",
                     "Both mostly reflect where in Virginia the sites are (Northern Virginia), not which neighbourhoods are next to them."))),
-    card(card_header("Every current permit"), DTOutput("va_tab")),
+    table_card("Every current permit", DTOutput("va_tab")),
     div(class = "small text-muted", style = "max-width: 1000px",
       p(strong("Notes. "), "Permits were saved by hand from DEQ's list (DEQ refuses scripted downloads) and read by scripts/08; values that could not be read reliably were read by hand.",
         "Not available: ", va$missing, ". Built ", va$built, "."),
@@ -240,22 +244,13 @@ ui <- if (is.null(app)) no_data_ui else page_navbar(
         card(card_header("About each supply option"), uiOutput("options_help")),
         card(card_header(textOutput("mix_title", inline = TRUE)), plotOutput("mix_plot", height = 190, fill = FALSE), tableOutput("mix_tab"),
              uiOutput("mix_note"))),
-      card(card_header("Largest plants in this mix"), DTOutput("plant_tab"),
+      table_card("Largest plants in this mix", DTOutput("plant_tab"),
            helpText("Share is the fraction of each MWh the plant supplies under the selected grid option. Emissions are the plant's totals for the data year."))),
     nav_panel("Who is exposed",
       layout_columns(col_widths = c(5, 7),
         card(card_header("Where the deaths fall"), tableOutput("where_tab"),
              card_header("Exposure by group"), uiOutput("grp_ui")),
-        card(card_header("Counties with the most attributable deaths"), DTOutput("top_tab")))),
-    nav_panel("Noise",
-      layout_columns(col_widths = c(4, 8),
-        card(card_header("Settings"),
-          radioButtons("nz_enc", "Generator enclosure", choices = setNames(names(NOISE_GEN), vapply(NOISE_GEN, `[[`, "", "label")), selected = "central"),
-          numericInput("nz_at_once", "Generators run together in a test", 1, min = 1, step = 1),
-          radioButtons("nz_cool", "Cooling equipment", choices = setNames(names(NOISE_COOL), vapply(NOISE_COOL, `[[`, "", "label")), selected = "central"),
-          numericInput("nz_home", "Distance to the nearest homes (m)", 300, min = 10, step = 50),
-          uiOutput("nz_basis")),
-        card(card_header("How far the noise reaches"), tableOutput("nz_tab"), plotOutput("nz_plot", height = 300, fill = FALSE), uiOutput("nz_note")))),
+        table_card("Counties with the most attributable deaths", DTOutput("top_tab")))),
     nav_panel("Compare supply options", DTOutput("cmp_tab"),
               helpText("Same load and location under each supply option. The grid rows use the loss and carbon-free share set in the sidebar.")),
     nav_panel("Methods and limitations", includeHTML("methods.html"), h5("Build report"), verbatimTextOutput("qa"))
@@ -517,7 +512,7 @@ server <- function(input, output, session) {
     datatable(data.frame(Plant = p$name, State = p$state, Fuel = tolower(p$fuelcat), `Share of each MWh (%)` = sig(100 * p$share, 2),
                          `Generation (TWh)` = sig(p$gen_twh, 3), `CO2 kg/MWh` = sig(p$co2_kg_mwh, 3), `SO2 (t/yr)` = sig(p$so2_t, 3),
                          `NOx (t/yr)` = sig(p$nox_t, 3), `PM2.5 (t/yr)` = sig(p$pm25_t, 3), check.names = FALSE),
-              rownames = FALSE, options = list(dom = "tp", pageLength = 10, ordering = FALSE),
+              rownames = FALSE, options = list(dom = "tp", pageLength = 10, ordering = FALSE, scrollX = TRUE),
               caption = sprintf("%s, %s", region_label(region()), names(SCENARIOS)[match(plant_mix(), SCENARIOS)]))
   })
 
@@ -634,53 +629,6 @@ server <- function(input, output, session) {
       abline(v = 1, lty = 2); text(rev(g$relative), b, sprintf("%.2f", rev(g$relative)), pos = 4, xpd = NA)
     })
   }
-
-  # ---- noise at the chosen site (screening; same assumptions as analysis/06_va_noise.R) -----------
-  nz_src <- reactive({
-    noise_sources(max(nz(input$gs_n, 0), 0), max(nz(input$gs_kw, 2500), 0), max(nz(input$nz_at_once, 1), 1),
-                  nz(input$nz_enc, "central"), energy()$facility_mw, nz(input$nz_cool, "central"))
-  })
-  nz_density <- reactive({                                    # people per km2 in the model grid cell around the site
-    k <- site_cell(); if (!has_cells || is.na(k)) NA_real_ else app$cells$pop[k] / app$cells$km[k]^2
-  })
-  output$nz_basis <- renderUI({
-    helpText(sprintf("Generators: %s x %s kW, from 'Add backup diesel generators' in the sidebar (the count follows the facility size until you change it).",
-                     fmt(max(nz(input$gs_n, 0), 0)), fmt(max(nz(input$gs_kw, 0), 0))),
-             sprintf("Cooling: the heat from a %s MW facility at full load (section 2), on a hot day.", fmt(energy()$facility_mw)))
-  })
-  output$nz_tab <- renderTable({
-    s <- nz_src(); s <- s[s$active, ]; validate(need(nrow(s) > 0, "Set a load and some generators to see noise."))
-    home <- max(nz(input$nz_home, 300), 1); dens <- nz_density()
-    d55 <- noise_dist(s$lw, 55, s$hs, s$alpha); d45 <- noise_dist(s$lw, 45, s$hs, s$alpha)
-    ppl <- function(d) if (is.finite(dens)) sig(dens * pi * (d / 1e3)^2, 2) else "-"
-    data.frame(Source = s$source, `Sound power, dB(A)` = sprintf("%.0f", s$lw),
-               `At the nearest homes, dB(A)` = sprintf("%.0f", noise_lp(s$lw, home, s$hs, s$alpha)),
-               `Distance to 55 dB(A)` = paste(fmt(d55), "m"), `Distance to 45 dB(A)` = paste(fmt(d45), "m"),
-               `People within 55` = vapply(d55, ppl, ""), `People within 45` = vapply(d45, ppl, ""), check.names = FALSE)
-  }, striped = TRUE, spacing = "s", align = "lrrrrrr")
-  output$nz_plot <- renderPlot({
-    s <- nz_src(); s <- s[s$active, ]; req(nrow(s) > 0)
-    d <- 10^seq(1, log10(5000), length.out = 200); cols <- c("#e08214", "#a8202f", "#2166ac")[match(s$source, nz_src()$source)]
-    L <- sapply(seq_len(nrow(s)), function(i) noise_lp(s$lw[i], d, s$hs[i], s$alpha[i]))
-    par(mar = c(4, 4.5, 1, 1)); matplot(d, L, type = "l", lty = 1, lwd = 2, col = cols, log = "x", ylim = c(30, max(90, max(L))), las = 1,
-                                        xlab = "Distance from the site (m)", ylab = "Level, dB(A)")
-    abline(h = c(55, 45), lty = 2, col = "grey40"); abline(v = max(nz(input$nz_home, 300), 1), lty = 3)
-    text(12, c(55, 45), c("55 dB(A)", "45 dB(A)"), pos = 3, cex = 0.8, col = "grey30")
-    legend("topright", legend = s$source, col = cols, lwd = 2, bty = "n", cex = 0.85)
-  })
-  output$nz_note <- renderUI({
-    k <- site_cell(); dens <- nz_density()
-    div(class = "small text-muted",
-      p("A screening estimate, not a noise study. Levels are A-weighted, downwind, over flat ground with nothing in the way; buildings, walls and berms often cut 5 to 15 dB.",
-        "Generators: makers' published level at 7 m for a 2.5 MW set (Level 2 enclosure 74, Level 1 79, open 97.5 dB(A)), scaled by rating, at full load.",
-        "Cooling: air-cooled chillers at 92, 95 or 98 dB(A) of sound power per MW of heat rejected. The sources are treated as a point at the site,",
-        "which overstates levels within about 150 m of a large campus. A-weighting understates the low-frequency hum that residents report most."),
-      p(if (is.finite(dens)) sprintf("People: %s people per km2, the density of the model grid cell around the site (%s km), times the area inside each level.%s",
-                                     fmt(dens), app$cells$km[k], if (!identical(input$loc_mode, "latlon")) " The site is the county's centre point; enter coordinates for a real site." else "")
-        else "People: not available for this location.",
-        " Thresholds: 55 dB(A) is Loudoun County's residential limit; 45 dB(A) is about 10 dB above a quiet suburban night. Assumptions and sources: ",
-        tags$a("analysis/06_va_noise_assumptions.md", href = paste0(REPO, "analysis/06_va_noise_assumptions.md"), target = "_blank"), "."))
-  })
 
   # ---- Virginia data centers page ---------------------------------------------------------------
   if (!is.null(va)) {
