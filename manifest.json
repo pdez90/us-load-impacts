@@ -1908,13 +1908,16 @@
   },
   "files": {
     "app.R": {
-      "checksum": "03f52afb36989d586b523f701524dad4"
+      "checksum": "8e7d2ecfc7f8dead9e1b53882469a427"
     },
     "data/app_data.rds": {
       "checksum": "e2f637e1fca7864d63965fbd15885f2d"
     },
     "data/build_report.txt": {
       "checksum": "ef3c1e3fbfd94378b179381a73ed4487"
+    },
+    "data/chen2026.rds": {
+      "checksum": "04ea0180ccf23cb36d8ab5c50db2b86f"
     },
     "data/harvard.rds": {
       "checksum": "3209ce56390c55c7cc786b569b552362"
@@ -1926,10 +1929,10 @@
       "checksum": "698dbc24ce27085ed09a9a141583f35e"
     },
     "methods.html": {
-      "checksum": "b05e99106a2b25badd39115a5a2250a1"
+      "checksum": "801bedd35fb14d0aad469830d0401d9d"
     },
     "R/calc.R": {
-      "checksum": "b7f04578a45750a058228c5f43e73f84"
+      "checksum": "4ecdb05a1a37266baa9f8c738b6aad11"
     }
   },
   "users": null

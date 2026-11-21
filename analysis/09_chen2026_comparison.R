@@ -10,6 +10,7 @@
 #                                      deaths occur (PM2.5 + ozone, GEMM and Turner CRFs; 648 in all)
 #      data/app_data.rds
 # Out: analysis/output/chen2026_comparison_states.csv, chen2026_comparison_summary.txt, chen2026_comparison.png
+#      data/chen2026.rds   what the app's "Chen et al. (2026) comparison" tab shows
 #
 # Same demand, different chain. Each state's load is split over the eGRID subregions its counties fall in, by
 # population (data centers are not spread by population, but within a state this mostly picks one subregion),
@@ -87,6 +88,15 @@ say("  Virginia: %.1f TWh (22%% of the load); deaths in Virginia Chen %.0f%%, ou
 say("  Deaths in states with under 0.5 TWh of data center load: Chen %.0f%%, ours %.0f%%",
     100 * sum(S[dc_twh < 0.5]$chen_share), 100 * sum(S[dc_twh < 0.5]$our_share))
 writeLines(lines, file.path(OUT, "chen2026_comparison_summary.txt"))
+
+# For the app: deaths are linear in the CRF slope, so the tab rescales the Krewski runs for the other CRFs.
+saveRDS(list(states = as.data.frame(S[, .(state, name, dc_twh, chen_deaths, chen_deaths_lo = C$deaths_lo[match(name, C$state)],
+                                          chen_deaths_hi = C$deaths_hi[match(name, C$state)], avg = avg_krewski, nb = nb_krewski)]),
+             beta_krewski = B_K, loss = loss, gen = c(avg = res$avg_krewski$gen, nb = res$nb_krewski$gen),
+             emis = data.frame(run = c("chen", "avg", "nb"), nox_kt = c(61.4, res$avg_krewski$nox / 1e3, res$nb_krewski$nox / 1e3),
+                               so2_kt = c(39.1, res$avg_krewski$so2 / 1e3, res$nb_krewski$so2 / 1e3)),
+             chen = list(gen_twh = CH_GEN, pm = CH_PM, o3 = CH_O3, pm_hao = 565, pm_ci = c(469, 557), o3_ci = c(90, 183)),
+             built = format(Sys.Date())), "data/chen2026.rds")
 
 png(file.path(OUT, "chen2026_comparison.png"), width = 1500, height = 1400, res = 200)
 par(mar = c(4.5, 4.5, 3, 1))

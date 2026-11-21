@@ -31,7 +31,7 @@ Read `data/build_report.txt` after step 04. It records how well the computed CO2
 
 The app file also carries the model's grid cells (for the zoomed-in map) and the plant list behind each mix, so rerun step 04 whenever `scripts/04_bake_app_data.R` changes.
 
-## Reproducing and extending the Harvard hyperscale paper
+## Reproducing and extending Guidi et al. (2026), the Harvard hyperscale paper
 
 `analysis/` reproduces the CO2 of Guidi, Dominici et al. (403 US hyperscale data centers, May 2024 to April 2025) from their public balancing-authority totals and adds PM2.5 deaths and power-plant water:
 
@@ -128,6 +128,18 @@ grid-support case replaced by every engine at its all-purpose hour cap, adds coo
 it, and applies the shared noise screening. EPA's national list holds 1 Oregon and 3 Washington data centers against
 the 39 campuses Oregon DEQ counts and the 22 sites Ecology lists, so in those states the permits, not ICIS-Air, are the
 inventory.
+
+## Comparison with Chen et al. (2026)
+
+```bash
+Rscript analysis/09_chen2026_comparison.R   # -> analysis/output/chen2026_comparison_*, data/chen2026.rds
+```
+
+Chen et al. (2026, Environ. Res. Lett. 21 214046) model the air pollution and deaths from US data center grid
+electricity in 2023 with hourly unit-level dispatch, GEOS-Chem and the GEMM. Step 09 runs their state-level demand
+(Supporting Information Table S1, typed into `data-raw/chen2026_tableS1.csv`) through this tool with both grid mixes and
+writes `data/chen2026.rds`, which the app's **Chen et al. (2026) comparison** tab shows: emissions, deaths under each
+health response, and each state's share of deaths against theirs. Rerun `scripts/05_write_manifest.R` after it.
 
 ## Run and deploy
 

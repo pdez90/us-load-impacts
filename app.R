@@ -15,6 +15,8 @@ DATA_FILE <- Sys.getenv("USLOAD_APP_DATA", unset = "data/app_data.rds")
 app <- if (file.exists(DATA_FILE)) readRDS(DATA_FILE) else NULL
 HV_FILE <- file.path(dirname(DATA_FILE), "harvard.rds")      # written by analysis/02_harvard_extension.R
 hv <- if (file.exists(HV_FILE)) readRDS(HV_FILE) else NULL
+CH_FILE <- file.path(dirname(DATA_FILE), "chen2026.rds")      # written by analysis/09_chen2026_comparison.R
+ch <- if (file.exists(CH_FILE)) readRDS(CH_FILE) else NULL
 OG_FILE <- file.path(dirname(DATA_FILE), "onsite_groups.rds")  # written by 04 after 03 --groups: who is exposed, for sources at the site
 if (!is.null(app) && file.exists(OG_FILE)) app$og <- readRDS(OG_FILE)
 VA_FILE <- file.path(dirname(DATA_FILE), "va_permits.rds")      # written by analysis/06_va_noise.R (after 05)
@@ -57,10 +59,10 @@ if (!is.null(app)) {
 }
 
 hv_ui <- function() {
-  if (is.null(hv)) return(card(card_header("Not built yet"), p("Run the three commands under 'Reproducing and extending the Harvard hyperscale paper' in README.md, then restart the app.")))
+  if (is.null(hv)) return(card(card_header("Not built yet"), p("Run the three commands under 'Reproducing and extending Guidi et al. (2026), the Harvard hyperscale paper' in README.md, then restart the app.")))
   tagList(
     div(style = "max-width: 1000px",
-      h4("Replicating, then extending, the Harvard hyperscale data center study"),
+      h4("Guidi et al. (2026): replicating, then extending, their hyperscale data center study"),
       p("Guidi, Dominici and colleagues (Nature Sustainability, 2026) estimated the electricity use and CO2 emissions of 403 US hyperscale data centers",
         "operating between May 2024 and April 2025. This page first checks that this tool reproduces their CO2 result, and then adds two things their study does not contain:",
         "the fine-particle (PM2.5) pollution and deaths from the same electricity, and the water used by the power plants."),
@@ -71,9 +73,9 @@ hv_ui <- function() {
           tags$tr(tags$td("2. Which plants supply it"), tags$td("Every plant in the facility's balancing authority, in proportion to its generation (EPA eGRID2023)"), tags$td("Same rule, rebuilt from eGRID2023 plant records")),
           tags$tr(tags$td("3. CO2"), tags$td("Yes"), tags$td(strong("Reproduced"), " (compared below)")),
           tags$tr(class = "table-success", tags$td("4. SO2, NOx and PM2.5 from those plants"), tags$td("No"), tags$td(strong("Added here"))),
-          tags$tr(class = "table-success", tags$td("5. PM2.5 downwind and who is exposed"), tags$td("No"), tags$td(strong("Added here"), ": InMAP Source-Receptor Matrix")),
+          tags$tr(class = "table-success", tags$td("5. PM2.5 downwind and who is exposed"), tags$td("No"), tags$td(HTML("<strong>Added here</strong>: InMAP Source-Receptor Matrix"))),
           tags$tr(class = "table-success", tags$td("6. Deaths attributable to that PM2.5"), tags$td("No"), tags$td(strong("Added here"))),
-          tags$tr(class = "table-success", tags$td("7. Water used by the power plants"), tags$td("No"), tags$td(strong("Added here"), ": EIA plant cooling data"))))),
+          tags$tr(class = "table-success", tags$td("7. Water used by the power plants"), tags$td("No"), tags$td(HTML("<strong>Added here</strong>: EIA plant cooling data")))))),
     layout_columns(fill = FALSE, col_widths = c(4, 8),
       selectInput("hv_u", "Their facility-load scenario", selected = "central",
                   choices = setNames(names(hv$u), sprintf("%s (u = %s)", c(low = "Low", central = "Central", continuity = "Intermediate-high", ai_high = "AI-weighted high")[names(hv$u)], hv$u))),
@@ -107,6 +109,53 @@ hv_ui <- function() {
 # A card for a data table: sized to its content (not stretched to fill the page), so notes below the table
 # never overlap its rows.
 table_card <- function(title, ...) card(fill = FALSE, card_header(title), card_body(fillable = FALSE, ...))
+
+ch_ui <- function() {
+  if (is.null(ch)) return(card(card_header("Not built yet"), p("Run Rscript analysis/09_chen2026_comparison.R (see README.md), then restart the app.")))
+  tagList(
+    div(style = "max-width: 1000px",
+      h4("Chen et al. (2026): the same demand, through this tool"),
+      p("Chen, Selin and colleagues (Environmental Research Letters, 2026) estimated the air pollution and deaths caused by the electricity US data centers drew",
+        "from the grid in 2023: 513 deaths a year from PM2.5 and 137 from ozone. They used an hourly model of which power plants run, a full atmospheric chemistry",
+        "model and the GEMM health response. This page runs their state-by-state demand through this tool and compares the results step by step."),
+      tags$table(class = "table table-sm", style = "max-width: 900px",
+        tags$thead(tags$tr(tags$th("Step"), tags$th("Their study"), tags$th("This tool"))),
+        tags$tbody(
+          tags$tr(tags$td("1. Data center demand by state"), tags$td("EPRI state shares for 2023: 152.3 TWh, 171 TWh of generation"), tags$td(HTML("<strong>Same</strong> (their Table S1), grossed up to the same generation"))),
+          tags$tr(tags$td("2. Which plants supply it"), tags$td("Hourly least-cost dispatch of every generator across 64 power regions, with trade between them"),
+                  tags$td("eGRID2023 mix of the state's subregion: average of all plants, or the plants that respond to new load (non-baseload)")),
+          tags$tr(tags$td("3. Air pollution"), tags$td("GEOS-Chem full chemistry for 2023, about 50 km"), tags$td("InMAP Source-Receptor Matrix (2005 chemistry), 1 to 48 km")),
+          tags$tr(tags$td("4. Pollutants counted"), tags$td("PM2.5 and ozone"), tags$td("PM2.5 only")),
+          tags$tr(tags$td("5. Health response"), tags$td("GEMM (Burnett et al. 2018)"), tags$td("Krewski, GEMM slope or Lepeule (choose below)")),
+          tags$tr(class = "table-success", tags$td("6. Backup diesel generators"), tags$td("Not included"), tags$td(HTML("<strong>Virginia data centers page</strong>: from the air permits")))))),
+    layout_columns(fill = FALSE, col_widths = c(4, 4, 4),
+      selectInput("ch_mix", "This tool's plants", c("Plants that respond to new load (non-baseload)" = "nb", "Average of all plants" = "avg")),
+      selectInput("ch_crf", "This tool's health response", setNames(names(CRF), vapply(CRF, `[[`, "", "label")), selected = "gemm"),
+      div(class = "small text-muted pt-4", "Deaths scale with the health response's slope, so these are the same runs rescaled.")),
+    layout_columns(fill = FALSE, col_widths = breakpoints(sm = c(6, 6, 6, 6), xxl = c(3, 3, 3, 3)),
+      value_box("Demand and generation", sprintf("%s TWh", fmt(sum(ch$states$dc_twh), 1)), sprintf("%s TWh generated, in both", fmt(ch$chen$gen_twh)), theme = "primary"),
+      value_box("NOx from the power plants", textOutput("ch_nox"), textOutput("ch_nox_sub"), theme = "secondary"),
+      value_box("PM2.5 deaths per year", textOutput("ch_deaths"), textOutput("ch_deaths_sub"), theme = "danger"),
+      value_box("Where the deaths fall", textOutput("ch_cor"), "correlation of each state's share of deaths, theirs vs this tool", theme = "info")),
+    layout_columns(col_widths = c(6, 6),
+      card(card_header("Share of deaths in each state: their study vs this tool"), plotOutput("ch_plot", height = 460, fill = FALSE),
+           helpText("Circle size: the state's data center load. On the dashed line the two agree. Their shares include ozone deaths (about a fifth).")),
+      card(card_header("Totals, step by step"), tableOutput("ch_tab"),
+           h6("What differs, and why"),
+           tags$ul(class = "small",
+             tags$li(strong("Health response. "), "Most of the gap in deaths. GEMM is steeper than Krewski at US pollution levels; with the GEMM option the gap closes from about 1.8 times to 1.2 times."),
+             tags$li(strong("The Midwest. "), "They put a larger share of deaths in the Midwest (15% against 10%). Their supplement finds the InMAP matrix understates nitrate formed from NOx there, because its chemistry predates today's ammonia-rich air."),
+             tags$li(strong("New York and North Carolina. "), "This tool puts more deaths there. Each state's load is split over its grid regions by population here, which sends New York's into New York City's dense, high-impact region."),
+             tags$li(strong("Virginia. "), "Both put only 4 to 5% of the deaths in Virginia, though it uses 22% of the electricity: the generation and the pollution are elsewhere."),
+             tags$li(strong("Ozone. "), "Not modelled here; it adds about a quarter to their PM2.5 deaths.")))),
+    table_card("By state", DTOutput("ch_state_tab")),
+    div(class = "small text-muted", style = "max-width: 1000px",
+      p(strong("Source. "), "Chen Y, Wang S, Senga JRL, White AS, Wong AYH, Freese LM, Bell ML, Selin NE (2026). Spatially distributed air quality and health impacts",
+        "of data center electricity demand in the United States. Environ. Res. Lett. 21 214046, ",
+        tags$a("doi:10.1088/1748-9326/aebbd4", href = "https://doi.org/10.1088/1748-9326/aebbd4", target = "_blank"),
+        " (CC BY 4.0). Demand and deaths by state are their Supporting Information Table S1; their full results are due on Zenodo after an embargo.",
+        " Code: ", tags$a("analysis/09_chen2026_comparison.R", href = paste0(REPO, "analysis/09_chen2026_comparison.R"), target = "_blank"), ". Built ", ch$built, ".")))
+}
 
 va_ui <- function() {
   if (is.null(va)) return(card(card_header("Not built yet"), p("Run analysis/05_va_permits.R and then analysis/06_va_noise.R (see 'Virginia data center air permits' in README.md), then restart the app.")))
@@ -256,7 +305,8 @@ ui <- if (is.null(app)) no_data_ui else page_navbar(
     nav_panel("Methods and limitations", includeHTML("methods.html"), h5("Build report"), verbatimTextOutput("qa"))
   ))),
   nav_panel("Virginia data centers", va_ui()),
-  nav_panel("Harvard replication", hv_ui())
+  nav_panel("Guidi et al. (2026) comparison", hv_ui()),
+  nav_panel("Chen et al. (2026) comparison", ch_ui())
 )
 
 server <- function(input, output, session) {
@@ -579,7 +629,7 @@ server <- function(input, output, session) {
                          `Water on site (ML/yr)` = sig(t$water_site_ML, 3), `Water at generation (ML/yr)` = sig(t$water_gen_cons_ML, 3), check.names = FALSE),
               rownames = FALSE, options = list(dom = "t", ordering = FALSE))
   })
-  # ---- Harvard replication page ----------------------------------------------------------------
+  # ---- Guidi et al. (2026) comparison page (the Harvard hyperscale study) ----------------------------------------------------------------
   if (!is.null(hv)) {
     hk <- reactive(hv$u[[nz(input$hv_u, "central")]] / hv$u_central)        # every quantity scales with the load coefficient
     output$hv_twh <- renderText(sprintf("%s TWh/yr", sig(sum(hv$ba$twh) * hk(), 3)))
@@ -701,6 +751,41 @@ server <- function(input, output, session) {
                       `55 dB(A): cooling (m)` = num(VS$d55_cool_central), Located = ifelse(VS$geo, "address", "county centre"), check.names = FALSE)
       datatable(d[order(-d$`NOx limit (short tons/yr)`), ], rownames = FALSE, filter = "top",
                 options = list(pageLength = 15, scrollX = TRUE, dom = "ftip"))
+    })
+  }
+
+  # ---- Chen et al. (2026) comparison ---------------------------------------------------------------
+  if (!is.null(ch)) {
+    chk <- reactive(CRF[[nz(input$ch_crf, "gemm")]]$beta / ch$beta_krewski)
+    chd <- reactive(ch$states[[nz(input$ch_mix, "nb")]] * chk())                    # this tool's deaths by state
+    output$ch_nox <- renderText({ e <- ch$emis; sprintf("%s vs %s kt", fmt(e$nox_kt[e$run == "chen"], 1), fmt(e$nox_kt[e$run == nz(input$ch_mix, "nb")], 1)) })
+    output$ch_nox_sub <- renderText({ e <- ch$emis; sprintf("theirs vs this tool; SO2 %s vs %s kt", fmt(e$so2_kt[e$run == "chen"], 1), fmt(e$so2_kt[e$run == nz(input$ch_mix, "nb")], 1)) })
+    output$ch_deaths <- renderText(sprintf("%s vs %s", fmt(ch$chen$pm), fmt(sum(chd()))))
+    output$ch_deaths_sub <- renderText(sprintf("theirs (GEMM) vs this tool; they add %s from ozone", fmt(ch$chen$o3)))
+    output$ch_cor <- renderText(sprintf("%.2f", cor(ch$states$chen_deaths / sum(ch$states$chen_deaths), chd() / sum(chd()))))
+    output$ch_plot <- renderPlot({
+      S <- ch$states; a <- 100 * S$chen_deaths / sum(S$chen_deaths); b <- 100 * chd() / sum(chd()); lim <- c(0, max(a, b) * 1.08)
+      par(mar = c(4.5, 4.5, 1, 1))
+      plot(a, b, pch = 21, bg = "#2166ac", col = "white", cex = 0.7 + sqrt(S$dc_twh) / 2, xlim = lim, ylim = lim, las = 1,
+           xlab = "Chen et al. 2026: share of deaths (%)", ylab = "This tool: share of deaths (%)")
+      abline(0, 1, lty = 2, col = "grey50"); big <- a > 3 | b > 3
+      text(a[big], b[big], S$state[big], pos = 4, cex = 0.8)
+    })
+    output$ch_tab <- renderTable({
+      e <- ch$emis; m <- nz(input$ch_mix, "nb"); k <- chk(); base <- ch$states[[m]]
+      dk <- function(crf) fmt(sum(base) * CRF[[crf]]$beta / ch$beta_krewski)
+      data.frame(Quantity = c("Generation (TWh)", "NOx (kt)", "SO2 (kt)", "PM2.5 deaths, Krewski", "PM2.5 deaths, GEMM", "PM2.5 deaths, Lepeule", "Ozone deaths"),
+                 `Their study` = c(fmt(ch$chen$gen_twh), fmt(e$nox_kt[1], 1), fmt(e$so2_kt[1], 1), "", sprintf("%s (%s-%s)", fmt(ch$chen$pm), ch$chen$pm_ci[1], ch$chen$pm_ci[2]), "",
+                                   sprintf("%s (%s-%s)", fmt(ch$chen$o3), ch$chen$o3_ci[1], ch$chen$o3_ci[2])),
+                 `This tool` = c(fmt(ch$gen[[m]]), fmt(e$nox_kt[e$run == m], 1), fmt(e$so2_kt[e$run == m], 1), dk("krewski"), dk("gemm"), dk("lepeule"), "not modelled"),
+                 check.names = FALSE)
+    }, striped = TRUE, spacing = "s", align = "lrr")
+    output$ch_state_tab <- renderDT({
+      S <- ch$states; d <- chd()
+      datatable(data.frame(State = S$name, `Data center load (TWh)` = S$dc_twh, `Their deaths (PM2.5 + ozone)` = sprintf("%s (%s-%s)", S$chen_deaths, S$chen_deaths_lo, S$chen_deaths_hi),
+                           `Their share (%)` = round(100 * S$chen_deaths / sum(S$chen_deaths), 1), `This tool: PM2.5 deaths` = signif(d, 2),
+                           `This tool: share (%)` = round(100 * d / sum(d), 1), check.names = FALSE),
+                rownames = FALSE, options = list(pageLength = 15, dom = "ftp", scrollX = TRUE, order = list(list(3, "desc"))))
     })
   }
 
