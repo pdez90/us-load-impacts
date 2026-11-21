@@ -1,0 +1,36 @@
+Our tool on Chen et al. (2026)'s demand (analysis/09_chen2026_comparison.R)
+Demand: 152.3 TWh in 39 states (their Table S1); generation 171.0 TWh (theirs 171.0) with 10.9% losses and imports
+
+EMISSIONS (kt)                        NOx      SO2
+  Chen et al. (dispatch)              61.4     39.1
+  ours, average mix                    32.7     25.2
+  ours, non-baseload mix               71.7     50.5
+
+DEATHS PER YEAR
+  Chen et al.: PM2.5 513 (GEMM) + ozone 137 = 650; PM2.5 with the Medicare CRF (Hao et al.) 565
+  ours, average mix, Krewski            140
+  ours, non-baseload mix, Krewski       286
+  ours, non-baseload mix, Lepeule       643
+  ratio, their PM2.5 to ours (non-baseload, Krewski): 1.8
+
+WHERE THE DEATHS OCCUR (share of each total; their column includes ozone)
+  correlation of state shares, Chen vs ours (non-baseload): 0.88 (Spearman 0.92)
+  state               TWh   Chen %   ours %
+  Texas              21.8     10.6     12.3
+  Pennsylvania        4.6      5.6      7.1
+  Ohio                2.4      5.6      5.2
+  Illinois            7.5      5.4      4.4
+  North Carolina      2.7      4.5      8.3
+  Virginia           33.9      3.9      4.6
+  New York            4.1      3.7     10.1
+  Missouri            1.0      3.5      2.4
+  Indiana             0.2      3.4      3.6
+  California          9.3      3.4      2.7
+  Michigan            0.5      3.2      1.6
+  Georgia             6.2      2.9      2.7
+  Maryland            0.1      2.8      3.2
+  New Jersey          4.0      2.8      3.5
+  Minnesota           0.8      2.6      1.4
+  Midwest (IA NE KS MO MN SD ND WI): Chen 15%, ours 10%
+  Virginia: 33.9 TWh (22% of the load); deaths in Virginia Chen 4%, ours 5%
+  Deaths in states with under 0.5 TWh of data center load: Chen 19%, ours 15%
