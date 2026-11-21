@@ -43,10 +43,18 @@ geocode <- function(street, city) {
   m <- r$result$addressMatches
   if (is.null(m) || !NROW(m)) return(c(NA, NA)); c(m$coordinates$x[1], m$coordinates$y[1])
 }
+spell_out <- function(street) {                       # second try: the geocoder sometimes misses abbreviations
+  s <- gsub("\\bPkwy\\b", "Parkway", street); s <- gsub("\\bSt\\b", "Street", s); s <- gsub("\\bRd\\b", "Road", s)
+  gsub("\\bSR ([0-9]+)", "State Route \\1", s)
+}
+geocode2 <- function(street, city) {
+  g <- geocode(street, city); if (is.finite(as.numeric(g[1])) || spell_out(street) == street) return(g)
+  Sys.sleep(1); geocode(spell_out(street), city)
+}
 G <- if (file.exists(GEO)) fread(GEO, colClasses = list(character = "order_no")) else data.table(order_no = character(), lon = numeric(), lat = numeric())
 todo <- P[!order_no %in% G$order_no & nzchar(street)]
 if (nrow(todo)) {
-  new <- rbindlist(lapply(seq_len(nrow(todo)), function(k) { Sys.sleep(1); g <- geocode(todo$street[k], todo$city[k])
+  new <- rbindlist(lapply(seq_len(nrow(todo)), function(k) { Sys.sleep(1); g <- geocode2(todo$street[k], todo$city[k])
     data.table(order_no = todo$order_no[k], lon = as.numeric(g[1]), lat = as.numeric(g[2])) }))
   if (any(is.finite(new$lon))) { G <- rbind(G, new[is.finite(lon)]); fwrite(G, GEO) }
 }
