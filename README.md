@@ -97,6 +97,38 @@ Rscript analysis/06_va_noise.R ~/Downloads/permits_virginia   # -> analysis/outp
 
 The permits say nothing about noise, but they give engine counts, ratings, makes and models, testing hours and site locations. Step 06 combines these with makers' published sound levels (dB(A) at 7 m for a 2.5 MW set: Level 2 enclosure 74, Level 1 enclosure 79, open set 97.5; scaled by rating) for two cases: a routine test with one engine running, and an outage with every engine running. Cooling noise is a rough, generic estimate: heat rejected = generator capacity / 1.25, at 92 / 95 / 98 dB(A) of sound power per MW (extra-low-noise / low-noise / standard air-cooled chillers). Sound is spread with ISO 9613-2's simplified A-weighted method (downwind, flat ground, no barriers). The script reports the distance to 55 and 45 dB(A) for each site, and the number of people (block groups, geocoded sites only) inside those levels with every site added together. It is a screening estimate, not a noise study; every assumption, its effect and its source is in `analysis/06_va_noise_assumptions.md`. Step 06 also writes `data/va_permits.rds`, which the app's **Virginia data centers** tab shows (permits, the three air cases, operating terms, noise rings and the people inside them); rerun `scripts/05_write_manifest.R` after it so Posit Connect deploys the file. The same noise method, for any site and size, is the **Noise** tab under Explore a site (functions `noise_*` in `R/calc.R`, shared with step 06).
 
+## Other states: finding permitted data centers
+
+No state other than Virginia publishes a list of data center air permits, so the first step is EPA's national
+record of Clean Air Act sources (ICIS-Air), filtered to data centers:
+
+```bash
+Rscript scripts/10_download_echo.R              # EPA ECHO bulk files (ICIS-Air 64 MB, ECHO Exporter 392 MB) -> data-raw/echo/
+Rscript analysis/07_datacenters_national.R      # -> analysis/output/dc_national_*  (sites, counts by state, map)
+Rscript scripts/11_download_wa_permits.R        # Washington Ecology approval orders -> data-raw/permits/wa/pdf/
+```
+
+Step 07 keeps ICIS-Air sources with a data processing and hosting industry code (NAICS 518210, SIC 7374) or a
+data center name, sets aside crypto-mining names, and checks itself against Virginia, where every permit is in hand:
+the share of Virginia's current permits it finds is how much the national list misses. ICIS-Air holds major and
+synthetic minor sources and some minor ones; data centers under permits by rule, general permits or exemptions are
+often missing. Washington's list (`data-raw/permits/wa/wa_list.csv`) is entered by hand from Ecology's data center
+page, with the current approval order for each site; Ecology lists some orders with no document. Oregon's permits
+are saved by hand from DEQ's AQ Permits Online.
+
+```bash
+Rscript analysis/08_wa_permits.R                # Washington: emissions, deaths and noise from the approval orders
+```
+
+`data-raw/permits/wa/wa_permits.csv` holds what was read by hand from the 11 approval orders Ecology posts: engines,
+ratings, all-purpose hour caps, testing hours and how many engines may run at once in a test, fuel caps, facility-wide
+NOx and PM limits (or the order's potential to emit where it sets no NOx limit), Tier 4 engines and cooling towers, with
+the condition or table each value came from (`source_pages`). Step 08 runs the same three cases as Virginia, with the
+grid-support case replaced by every engine at its all-purpose hour cap, adds cooling-tower PM2.5 where an order counts
+it, and applies the shared noise screening. EPA's national list holds 1 Oregon and 3 Washington data centers against
+the 39 campuses Oregon DEQ counts and the 22 sites Ecology lists, so in those states the permits, not ICIS-Air, are the
+inventory.
+
 ## Run and deploy
 
 ```r

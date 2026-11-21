@@ -1,0 +1,25 @@
+Washington data center generators, from Ecology approval orders (analysis/08_wa_permits.R)
+Orders read: 11 (Ecology lists 22 data centers; 9 have no posted document; Olympia is permitted by ORCAA)
+Engines: 418, 1013 MW; sites placed at a geocoded address: 6 of 11
+All-purpose hour caps per engine: median 86 h (range 37-336); testing hours stated in 7 orders (median 18 h)
+Permitted NOx: 450.5 short tons/yr in all (median order 37.6 t; Virginia's median permit is 95 t)
+
+THREE CASES (NOx in metric tonnes; deaths/yr from PM2.5, including 20.5 t/yr of cooling-tower PM2.5 in every case)
+  routine testing      NOx    135 t   deaths 0.10
+  all permitted hours  NOx    252 t   deaths 0.16
+  permitted maximum    NOx    409 t   deaths 0.23
+  of which cooling towers alone: 0.03 deaths/yr
+
+NOISE (central case; distance to 55 dB(A), median / largest site)
+  routine test (1-5 engines at once, as the orders allow)  73 / 161 m
+  outage, every engine                                  277 / 590 m
+  cooling                                               174 / 355 m (45 dB(A): 465 / 981 m)
+  people >= 55 dB(A), test   quiet      20  central      60  loud   3,970
+  people >= 45 dB(A), test   quiet     210  central     670  loud   9,760
+  people >= 55 dB(A), outage quiet     660  central   2,070  loud   9,040
+  people >= 45 dB(A), outage quiet   5,240  central   7,620  loud  14,890
+  people >= 55 dB(A), cool   quiet     340  central     670  loud   1,330
+  people >= 45 dB(A), cool   quiet   3,420  central   5,510  loud   7,150
+
+Not covered: the 9 East Wenatchee and Wenatchee orders Ecology lists without a document, Microsoft's Malaga site, and data
+centers permitted by local clean air agencies. NTT's order gives no site address (placed at Quincy's centre).

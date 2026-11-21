@@ -1,0 +1,37 @@
+Data centers with Clean Air Act records in EPA ICIS-Air (analysis/07_datacenters_national.R)
+ICIS-Air sources read: 280,600
+Look like data centers: 626 (492 by industry code, 134 by name only); 3 crypto-mining names set aside; 44 closed
+Not closed, not crypto: 579 in 42 states; 76 major, 296 synthetic minor, 173 minor, 34 other/unknown class; 579 with coordinates
+
+BY STATE (not closed, not crypto), most first
+  VA   148 sites  (major 3, synthetic minor 126, minor 19; planned 3; found by name only 21)
+  IL    54 sites  (major 12, synthetic minor 7, minor 34; planned 0; found by name only 20)
+  IA    34 sites  (major 6, synthetic minor 21, minor 6; planned 0; found by name only 18)
+  CO    31 sites  (major 2, synthetic minor 13, minor 15; planned 0; found by name only 9)
+  GA    30 sites  (major 4, synthetic minor 23, minor 3; planned 14; found by name only 4)
+  OH    25 sites  (major 9, synthetic minor 12, minor 3; planned 1; found by name only 1)
+  NJ    22 sites  (major 0, synthetic minor 17, minor 5; planned 0; found by name only 11)
+  NE    21 sites  (major 2, synthetic minor 0, minor 17; planned 2; found by name only 0)
+  PA    19 sites  (major 0, synthetic minor 9, minor 9; planned 0; found by name only 3)
+  AZ    17 sites  (major 0, synthetic minor 15, minor 1; planned 0; found by name only 0)
+  MN    13 sites  (major 0, synthetic minor 0, minor 5; planned 0; found by name only 1)
+  MD    12 sites  (major 0, synthetic minor 5, minor 7; planned 0; found by name only 2)
+  TX    12 sites  (major 12, synthetic minor 0, minor 0; planned 0; found by name only 0)
+  NC    11 sites  (major 2, synthetic minor 4, minor 5; planned 0; found by name only 2)
+  IN    10 sites  (major 3, synthetic minor 1, minor 2; planned 1; found by name only 0)
+  MA    10 sites  (major 0, synthetic minor 5, minor 4; planned 0; found by name only 5)
+  OK    10 sites  (major 1, synthetic minor 2, minor 7; planned 0; found by name only 2)
+  TN    10 sites  (major 1, synthetic minor 5, minor 4; planned 0; found by name only 1)
+  MO     9 sites  (major 0, synthetic minor 3, minor 5; planned 0; found by name only 2)
+  NH     7 sites  (major 0, synthetic minor 1, minor 6; planned 0; found by name only 2)
+  NM     7 sites  (major 0, synthetic minor 2, minor 5; planned 2; found by name only 2)
+  NV     7 sites  (major 3, synthetic minor 3, minor 0; planned 0; found by name only 3)
+  UT     7 sites  (major 6, synthetic minor 0, minor 0; planned 6; found by name only 6)
+  DE     5 sites  (major 0, synthetic minor 3, minor 2; planned 0; found by name only 0)
+  KS     5 sites  (major 0, synthetic minor 1, minor 0; planned 0; found by name only 0)
+
+CHECK AGAINST VIRGINIA (191 current DEQ permits; matched on house number and ZIP code or street name)
+  in this data center list: 75 (39%); in ICIS-Air under any industry code: 93 (49%)
+  ICIS-Air Virginia sources that look like data centers: 148
+
+Next states to read permits for: VA, IL, IA, CO, GA, OH, NJ, NE, PA, AZ
