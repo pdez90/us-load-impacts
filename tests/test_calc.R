@@ -123,6 +123,14 @@ test_that("who is exposed works for sources at the site", {
   expect_false(is.null(impact(app, fips, 1, scenario = "onsite", site_cell = cl)$ses))
 })
 
+test_that("the GEMM option is a slope between Krewski and Lepeule", {
+  expect_equal(CRF$gemm$beta, gemm_beta())
+  expect_gt(CRF$gemm$beta, CRF$krewski$beta); expect_lt(CRF$gemm$beta, CRF$lepeule$beta)
+  expect_gt(gemm_beta(6), gemm_beta(10))                    # steeper in cleaner air
+  h <- 1e-4; z <- 8 - 2.4; lr <- function(z) 0.1430 * log(1 + z / 1.6) / (1 + exp(-(z - 15.5) / 36.8))
+  expect_equal(gemm_beta(ncd_lri_share = 1), (lr(z + h) - lr(z - h)) / (2 * h), tolerance = 1e-6)
+})
+
 test_that("noise screening reproduces the makers' level at 7 m and falls with distance", {
   lw <- noise_lw_gen(2500, NOISE_GEN$central$lp7)
   expect_equal(noise_lp(lw, 7, NOISE_H[["gen"]], NOISE_ALPHA[["gen"]]), 79, tolerance = 1.5)

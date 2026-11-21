@@ -5,9 +5,21 @@
 # Everything in data/app_data.rds is stored per TWh/yr generated (grid mixes) or
 # per tonne/yr emitted (on-site power), so a result is a rescaling.
 
+#' GEMM (Burnett et al. 2018, PNAS 115:9592) for non-communicable disease and lower respiratory infection deaths at
+#' ages 25+, with the Chinese cohort: log RR(z) = theta log(1 + z/alpha) / (1 + exp(-(z - mu)/nu)), z = max(0, C - 2.4).
+#' The tool's increments are small, so GEMM is used through its slope at a baseline concentration c0 (default 8 ug/m3,
+#' roughly the US population-weighted annual mean), and scaled by the share of all deaths that are NCD + LRI at ages
+#' 25+ (about 0.87 in the US: injuries are about 9% of deaths and deaths under 25 about 2%), because the tool's
+#' baseline mortality is all-cause at all ages. Chen et al. (2026, ERL 21 214046) use the full GEMM with age-specific
+#' rates; the slope is steeper at lower baseline concentrations, so this single value is an approximation.
+gemm_beta <- function(c0 = 8, theta = 0.1430, alpha = 1.6, mu = 15.5, nu = 36.8, cf = 2.4, ncd_lri_share = 0.87) {
+  z <- max(c0 - cf, 0); w <- 1 / (1 + exp(-(z - mu) / nu))
+  ncd_lri_share * theta * (w / (alpha + z) + log(1 + z / alpha) * w * (1 - w) / nu)
+}
 CRF <- list(
   krewski = list(label = "Krewski et al. 2009 (ACS): RR 1.06 per 10 ug/m3", beta = log(1.06) / 10),
-  lepeule = list(label = "Lepeule et al. 2012 (Six Cities): RR 1.14 per 10 ug/m3", beta = log(1.14) / 10))
+  lepeule = list(label = "Lepeule et al. 2012 (Six Cities): RR 1.14 per 10 ug/m3", beta = log(1.14) / 10),
+  gemm    = list(label = "GEMM, Burnett et al. 2018 (as Chen et al. 2026): slope at 8 ug/m3, about RR 1.09 per 10 ug/m3", beta = gemm_beta()))
 
 PRESETS <- list(
   dc_evap  = list(label = "Data center, evaporative cooling", basis = "it", pue = 1.20, lf = 0.70, wue = 1.8),

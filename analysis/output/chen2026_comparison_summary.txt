@@ -10,8 +10,9 @@ DEATHS PER YEAR
   Chen et al.: PM2.5 513 (GEMM) + ozone 137 = 650; PM2.5 with the Medicare CRF (Hao et al.) 565
   ours, average mix, Krewski            140
   ours, non-baseload mix, Krewski       286
+  ours, non-baseload mix, GEMM slope    428   (as their CRF; linearised at 8 ug/m3)
   ours, non-baseload mix, Lepeule       643
-  ratio, their PM2.5 to ours (non-baseload, Krewski): 1.8
+  ratio, their PM2.5 to ours (non-baseload): 1.8 with Krewski, 1.2 with the GEMM slope
 
 WHERE THE DEATHS OCCUR (share of each total; their column includes ozone)
   correlation of state shares, Chen vs ours (non-baseload): 0.88 (Spearman 0.92)

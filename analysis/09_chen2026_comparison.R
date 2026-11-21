@@ -17,7 +17,7 @@
 # average and the non-baseload mix. Deaths are summed by the state where they occur, as in their Table S1.
 # Differences come from: which plants respond (their hourly unit-level dispatch across 64 regions vs our eGRID
 # subregion mix), the air model (GEOS-Chem with 2023 chemistry vs InMAP ISRM), pollutants (PM2.5 + ozone vs
-# PM2.5) and the CRF (GEMM vs Krewski; Lepeule shown as a steeper alternative).
+# PM2.5) and the CRF (GEMM vs Krewski; the app's linearised GEMM and Lepeule shown too).
 # =============================================================================
 suppressPackageStartupMessages(library(data.table))
 source("R/calc.R")
@@ -48,7 +48,8 @@ run <- function(scenario, beta) {
   list(by_state = cty[, .(deaths = sum(d[.I])), by = state], gen = tot, nox = nox, so2 = so2, deaths = sum(d))
 }
 B_K <- CRF$krewski$beta; B_L <- CRF$lepeule$beta
-res <- list(avg_krewski = run("avg", B_K), nb_krewski = run("nb", B_K), nb_lepeule = run("nb", B_L))
+B_G <- CRF$gemm$beta
+res <- list(avg_krewski = run("avg", B_K), nb_krewski = run("nb", B_K), nb_gemm = run("nb", B_G), nb_lepeule = run("nb", B_L))
 
 S <- C[, .(state = abb, name = state, dc_twh, chen_deaths = deaths, chen_pm_est = deaths * CH_PM / (CH_PM + CH_O3))]
 for (nm in names(res)) S[res[[nm]]$by_state, on = "state", (nm) := i.deaths]
@@ -68,8 +69,9 @@ say("DEATHS PER YEAR")
 say("  Chen et al.: PM2.5 %d (GEMM) + ozone %d = %d; PM2.5 with the Medicare CRF (Hao et al.) 565", CH_PM, CH_O3, CH_PM + CH_O3)
 say("  ours, average mix, Krewski           %4.0f", res$avg_krewski$deaths)
 say("  ours, non-baseload mix, Krewski      %4.0f", res$nb_krewski$deaths)
+say("  ours, non-baseload mix, GEMM slope   %4.0f   (as their CRF; linearised at 8 ug/m3)", res$nb_gemm$deaths)
 say("  ours, non-baseload mix, Lepeule      %4.0f", res$nb_lepeule$deaths)
-say("  ratio, their PM2.5 to ours (non-baseload, Krewski): %.1f", CH_PM / res$nb_krewski$deaths)
+say("  ratio, their PM2.5 to ours (non-baseload): %.1f with Krewski, %.1f with the GEMM slope", CH_PM / res$nb_krewski$deaths, CH_PM / res$nb_gemm$deaths)
 say("")
 sh <- function(x) x / sum(x)
 S[, `:=`(chen_share = sh(chen_deaths), our_share = sh(nb_krewski))]
