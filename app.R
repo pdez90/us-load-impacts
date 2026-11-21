@@ -69,6 +69,8 @@ hv_ui <- function() {
       tags$table(class = "table table-sm", style = "max-width: 900px",
         tags$thead(tags$tr(tags$th("Step"), tags$th("Their study"), tags$th("This tool"))),
         tags$tbody(
+          tags$tr(tags$td("Which data centers"), tags$td("403 hyperscale facilities, May 2024 to April 2025. The facility list is not public (data-use agreement)"),
+                  tags$td("The same electricity, from their public totals for 23 balancing authorities. Their method spreads each facility's use over its whole balancing authority, so the totals are enough; no site locations are used")),
           tags$tr(tags$td("1. Electricity each facility uses"), tags$td("Facility capacity x 8,760 h x a load coefficient (0.48 to 0.70; central 0.58)"), tags$td("Taken from their published totals by balancing authority")),
           tags$tr(tags$td("2. Which plants supply it"), tags$td("Every plant in the facility's balancing authority, in proportion to its generation (EPA eGRID2023)"), tags$td("Same rule, rebuilt from eGRID2023 plant records")),
           tags$tr(tags$td("3. CO2"), tags$td("Yes"), tags$td(strong("Reproduced"), " (compared below)")),
@@ -121,6 +123,8 @@ ch_ui <- function() {
       tags$table(class = "table table-sm", style = "max-width: 900px",
         tags$thead(tags$tr(tags$th("Step"), tags$th("Their study"), tags$th("This tool"))),
         tags$tbody(
+          tags$tr(tags$td("Which data centers"), tags$td("All US data centers, as a share of each state's 2023 electricity use (EPRI); no facility list. Not the same set as Guidi et al., who cover hyperscale sites only"),
+                  tags$td("The same state totals. Each state's load is split over its grid regions by population, since no site locations are given")),
           tags$tr(tags$td("1. Data center demand by state"), tags$td("EPRI state shares for 2023: 152.3 TWh, 171 TWh of generation"), tags$td(HTML("<strong>Same</strong> (their Table S1), grossed up to the same generation"))),
           tags$tr(tags$td("2. Which plants supply it"), tags$td("Hourly least-cost dispatch of every generator across 64 power regions, with trade between them"),
                   tags$td("eGRID2023 mix of the state's subregion: average of all plants, or the plants that respond to new load (non-baseload)")),
