@@ -33,7 +33,8 @@
 #   Flat terrain, rural dispersion, NO BUILDING DOWNWASH: the buildings beside the engines are not known, and their
 #     wake pulls plumes down. Near the site (within a few building heights, some hundreds of metres) concentrations are
 #     therefore understated, most of all for the short stack.
-#   Receptors: rings every 10 degrees at 50 m to 5 km, at ground level (flagpole height 0).
+#   Receptors: rings every 10 degrees at 50 m to 5 km, at ground level (flagpole height 0); every 20 degrees for the
+#     outage run of a site with more than 150 engines, to keep the run to about an hour.
 #   An outage is a few hours in a year at a time nobody chooses. The 1-hour results are what the weather could give:
 #     the highest hour, the 8th-highest daily maximum (the form of the 1-hour standard, 188 ug/m3) and the all-hours mean.
 # =============================================================================
@@ -44,6 +45,7 @@ step <- commandArgs(trailingOnly = TRUE); if (!length(step)) step <- c("write", 
 KW_REF <- 2500; T_STACK <- 763; FLOW_REF <- 9.0; D_REF <- 0.5        # per 2,500 kW engine
 EF <- c(nox = 6.4, nox_scr = 0.67, pm = 0.20)                          # g/kWh
 LOAD_TEST <- 0.75; H_TEST_DEFAULT <- 32; H_SITE <- 10; SPACING <- 10
+BIG_SITE <- 150                                                       # outage runs for sites with more engines use rings every 20 degrees
 DIST <- c(50, 75, 100, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 5000)
 NAAQS_NO2_1H <- 188; RFC_DPM <- 5                                     # ug/m3: 1-hour NO2 standard (100 ppb); EPA reference concentration for diesel exhaust
 NOVA <- c("51107", "51153", "51059", "51683", "51685", "51600", "51610", "51013", "51510")
@@ -74,7 +76,7 @@ met_files <- function() {
   yr <- as.integer(strsplit(trimws(hd[2]), "\\s+")[[1]][1]); yr <- if (yr < 100) ifelse(yr > 50, 1900 + yr, 2000 + yr) else yr
   list(sfc = normalizePath(sfc), pfl = normalizePath(pfl), sf_id = id("SF_ID"), ua_id = id("UA_ID"), year = yr, header = trimws(gsub("\\s+", " ", hd[1])))
 }
-write_inp <- function(run, title, src, pollutant, avertime, out_lines, met, emisfact = NULL) {
+write_inp <- function(run, title, src, pollutant, avertime, out_lines, met, emisfact = NULL, ndir = 36) {
   dir.create(file.path(RUNS, run), recursive = TRUE, showWarnings = FALSE)
   m <- if (is.null(met)) list(sfc = "MET.SFC", pfl = "MET.PFL", sf_id = "93738", ua_id = "93734", year = 2020) else met
   L <- c("CO STARTING",
@@ -97,7 +99,7 @@ write_inp <- function(run, title, src, pollutant, avertime, out_lines, met, emis
          "   GRIDPOLR  RING ORIG 0.0 0.0",
          sprintf("   GRIDPOLR  RING DIST %s", paste(DIST[1:7], collapse = " ")),
          sprintf("   GRIDPOLR  RING DIST %s", paste(DIST[8:14], collapse = " ")),
-         "   GRIDPOLR  RING GDIR 36 10 10",
+         sprintf("   GRIDPOLR  RING GDIR %d %d %d", ndir, 360 / ndir, 360 / ndir),
          "   GRIDPOLR  RING END",
          "RE FINISHED", "",
          "ME STARTING",
@@ -137,7 +139,8 @@ do_write <- function() {
     # outage: every engine at full load; SCR engines at the Tier 4 rate
     q_out <- ifelse(seq_len(n) <= nscr, EF[["nox_scr"]], EF[["nox"]]) * kw / 3600
     write_inp(paste0(tag, "_outage"), sprintf("%s (%s): all %d engines at full load, 1-hour NO2", s$registration, s$pick, n),
-              data.frame(id = id, x = xy$x, y = xy$y, q = q_out, h = H_SITE, v = st$v, d = st$d), "NO2", "1 PERIOD", OUT_NO2, met)
+              data.frame(id = id, x = xy$x, y = xy$y, q = q_out, h = H_SITE, v = st$v, d = st$d), "NO2", "1 PERIOD", OUT_NO2, met,
+              ndir = if (n > BIG_SITE) 18 else 36)             # run time grows with engines x receptors x hours
     # routine testing: the year's testing emissions released evenly over the testing window (hours ending 8-17, every day)
     hf <- test_hours(s$testing_window); q_ann <- EF[["pm"]] * kw * th * LOAD_TEST / (sum(hf) * 365 * 3600)
     write_inp(paste0(tag, "_annual"), sprintf("%s (%s): routine testing, annual diesel PM", s$registration, s$pick),
@@ -186,7 +189,7 @@ do_read <- function() {
   }
   if (!length(res)) stop("no AERMOD results found under ", RUNS, "; run the 'run' step first")
   res <- rbindlist(res)
-  ver <- vapply(R$run, function(r) { o <- readLines(file.path(RUNS, r, "aermod.out"), n = 40, warn = FALSE)
+  ver <- vapply(R$run, function(r) { o <- readLines(file.path(RUNS, r, "aermod.out"), n = 200, warn = FALSE)
     v <- regmatches(o, regexpr("VERSION\\s+[0-9]+[A-Za-z]*", o)); if (length(v)) sub("VERSION\\s+", "", v[1]) else NA_character_ }, "")
   R[, aermod_version := ver]
   fwrite(res, file.path(OUT, "va_aermod_results.csv")); fwrite(R, file.path(OUT, "va_aermod_runs.csv"))
@@ -200,7 +203,10 @@ do_read <- function() {
       v <- res[run == r$run & stat == st][order(distance_m)]
       lab <- c(h1h = "highest hour", h8h = "8th-highest daily max", period = if (r$pollutant == "NO2") "mean of all hours" else "annual mean")[[st]]
       say("  %-22s %s", lab, paste(sprintf("%gm %s", v$distance_m[c(1, 3, 5, 8, 10, 12, 14)], signif(v$max[c(1, 3, 5, 8, 10, 12, 14)], 3)), collapse = " | "))
-      if (r$pollutant == "NO2" && st != "period") say("  %-22s at or above %d ug/m3 (the 1-hour NO2 standard) out to %s m", "", NAAQS_NO2_1H, format(far(v$distance_m, v$max, NAAQS_NO2_1H), big.mark = ","))
+      if (r$pollutant == "NO2" && st != "period") { f <- far(v$distance_m, v$max, NAAQS_NO2_1H)
+        say("  %-22s %s", "", if (f == 0) sprintf("below %d ug/m3 (the 1-hour NO2 standard) on every ring", NAAQS_NO2_1H) else if (f >= max(DIST))
+          sprintf("at or above %d ug/m3 (the 1-hour NO2 standard) to the edge of the grid (5 km) and beyond", NAAQS_NO2_1H) else
+          sprintf("at or above %d ug/m3 (the 1-hour NO2 standard) out to %s m", NAAQS_NO2_1H, format(f, big.mark = ","))) }
     }
   }
   say(""); say("Diesel PM: EPA's reference concentration for long-term exposure is %g ug/m3; California's cancer unit risk is 300 in a million per ug/m3 over a lifetime.", RFC_DPM)

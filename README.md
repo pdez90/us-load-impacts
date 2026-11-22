@@ -104,12 +104,14 @@ Three small tables in `data-raw/permits/va/` are tracked in git: `validation_sam
 
 ```bash
 Rscript scripts/13_build_aermod.R        # EPA's source, compiled with gfortran -> build/aermod/bin/aermod  (macOS: brew install gcc)
+Rscript scripts/13_build_aermod.R aermet # EPA's weather processor -> build/aermet/bin/aermet
+Rscript scripts/14_dulles_met.R          # NOAA observations for Dulles, 2021-2024 -> data-raw/aermod/met/dulles_2021_2024.sfc, .pfl
 Rscript analysis/10_va_aermod.R write    # input files -> build/aermod/runs/
-Rscript analysis/10_va_aermod.R run      # needs weather files (below)
+Rscript analysis/10_va_aermod.R run      # an hour or more for five years of weather
 Rscript analysis/10_va_aermod.R read     # -> analysis/output/va_aermod_*; then rerun analysis/06 and scripts/05_write_manifest.R
 ```
 
-AERMOD needs processed weather files (one `.SFC`, one `.PFL`) for Washington Dulles in `data-raw/aermod/met/`. Virginia DEQ does not post them; its Air Assessments staff supply them to permit applicants on request, or they can be built from NOAA observations with EPA's AERMET. Stack heights, exhaust data and building layouts are not in the permits: the script's header lists every assumption. Building downwash is left out, so levels close to a site are understated.
+AERMOD needs processed weather files (one `.SFC`, one `.PFL`) in `data-raw/aermod/met/`. Virginia DEQ does not post them, so step 14 builds them with EPA's AERMET from NOAA's hourly surface observations at Washington Dulles (Integrated Surface Database, 724030-93738) and balloon soundings at Sterling (IGRA, USM00072403). Two steps of a regulatory set are left out: 1-minute winds (AERMINUTE), so calm hours, which AERMOD skips, are more frequent; and land-cover-derived surface characteristics (AERSURFACE), replaced by EPA's table values for grassland by season. Step 14 prints the share of calm and missing hours. A set supplied by DEQ's Air Assessments staff can be used instead by putting its two files in the same folder. Stack heights, exhaust data and building layouts are not in the permits: the header of `analysis/10_va_aermod.R` lists every assumption. Building downwash is left out, so levels close to a site are understated.
 
 ### Noise screening (generators and cooling)
 

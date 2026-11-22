@@ -1,0 +1,10 @@
+run,registration,site,pick,case,engines,kw_unit,scr_engines,stack_m,pollutant,weather,aermod_version
+engine_h5,"","One 2,500 kW engine",one engine,one engine at full load,1,2500,0,5,NO2,38.935N 77.447W UA_ID: 00072403 SF_ID: 93738 OS_ID: VERSION: 26135 ADJ_U* CCVR_Sub TEMP_Sub,26135
+engine_h10,"","One 2,500 kW engine",one engine,one engine at full load,1,2500,0,10,NO2,38.935N 77.447W UA_ID: 00072403 SF_ID: 93738 OS_ID: VERSION: 26135 ADJ_U* CCVR_Sub TEMP_Sub,26135
+engine_h15,"","One 2,500 kW engine",one engine,one engine at full load,1,2500,0,15,NO2,38.935N 77.447W UA_ID: 00072403 SF_ID: 93738 OS_ID: VERSION: 26135 ADJ_U* CCVR_Sub TEMP_Sub,26135
+74262_4_outage,74262-4,"Digital Third Second Manassas, LLC & Digital Carver Brickyard, LLC",largest,outage: every engine at full load,266,2967,142,10,NO2,38.935N 77.447W UA_ID: 00072403 SF_ID: 93738 OS_ID: VERSION: 26135 ADJ_U* CCVR_Sub TEMP_Sub,
+74262_4_annual,74262-4,"Digital Third Second Manassas, LLC & Digital Carver Brickyard, LLC",largest,"routine testing, 25 h per engine a year",266,2967,142,10,diesel PM,38.935N 77.447W UA_ID: 00072403 SF_ID: 93738 OS_ID: VERSION: 26135 ADJ_U* CCVR_Sub TEMP_Sub,
+74349_1_outage,74349-1,Amazon Data Services Inc IAD-264,median,outage: every engine at full load,49,2250,0,10,NO2,38.935N 77.447W UA_ID: 00072403 SF_ID: 93738 OS_ID: VERSION: 26135 ADJ_U* CCVR_Sub TEMP_Sub,26135
+74349_1_annual,74349-1,Amazon Data Services Inc IAD-264,median,"routine testing, 32 h per engine a year",49,2250,0,10,diesel PM,38.935N 77.447W UA_ID: 00072403 SF_ID: 93738 OS_ID: VERSION: 26135 ADJ_U* CCVR_Sub TEMP_Sub,
+74154_5_outage,74154-5,Aerospace Data Facility - East,lower quartile,outage: every engine at full load,21,1623,7,10,NO2,38.935N 77.447W UA_ID: 00072403 SF_ID: 93738 OS_ID: VERSION: 26135 ADJ_U* CCVR_Sub TEMP_Sub,26135
+74154_5_annual,74154-5,Aerospace Data Facility - East,lower quartile,"routine testing, 32 h per engine a year",21,1623,7,10,diesel PM,38.935N 77.447W UA_ID: 00072403 SF_ID: 93738 OS_ID: VERSION: 26135 ADJ_U* CCVR_Sub TEMP_Sub,26135

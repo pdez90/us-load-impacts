@@ -217,6 +217,7 @@ va_ui <- function() {
            helpText("The regional model's grid cells are a kilometre or more across; this is EPA's model for the first few kilometres.",
                     "The permits give no stack heights, exhaust data or building layouts, so stacks are assumed and building downwash is left out, which understates levels close to a site.",
                     "No background is added. An outage is a few hours in a year: the 1-hour values show what the weather could give, not what is expected in a year.",
+                    "Weather is Washington Dulles, built from NOAA's hourly observations without 1-minute winds, so calm hours, which the model skips, are more frequent than in a regulatory data set.",
                     tags$a("analysis/10_va_aermod.R", href = paste0(REPO, "analysis/10_va_aermod.R"), target = "_blank")))),
     table_card("Every current permit", DTOutput("va_tab")),
     div(style = "max-width: 1000px; margin-top: 1.5rem",
@@ -780,18 +781,18 @@ server <- function(input, output, session) {
         req(input$va_aer_run, input$va_aer_stat); a <- va$aermod[va$aermod$run == input$va_aer_run, ]; r <- va$aermod_runs[va$aermod_runs$run == input$va_aer_run, ]
         no2 <- r$pollutant == "NO2"; lab <- c(h1h = "Highest hour", h8h = "8th-highest daily maximum", period = if (no2) "Mean of all hours" else "Annual mean")
         col <- c(h1h = "#b2182b", h8h = "#ef8a62", period = "#2166ac"); y <- a[[input$va_aer_stat]]; lim <- if (no2) 188 else 5
-        par(mar = c(4.2, 4.6, 1, 1)); plot(a$distance_m, y, log = "xy", type = "n", xlab = "Distance from the centre of the engine yard (m)",
+        par(mar = c(4.2, 4.6, 2.4, 1)); plot(a$distance_m, y, log = "xy", type = "n", xlab = "Distance from the centre of the engine yard (m)",
              ylab = if (no2) expression("NO"[2] * " (" * mu * "g/m"^3 * ")") else expression("Diesel PM (" * mu * "g/m"^3 * ")"), ylim = range(c(y[y > 0], lim)), las = 1)
         grid(col = "grey90", lty = 1)
         for (st in unique(a$stat)) { k <- a$stat == st; o <- order(a$distance_m[k]); lines(a$distance_m[k][o], y[k][o], col = col[[st]], lwd = 2.5, type = "b", pch = 16) }
         abline(h = lim, lty = 2); text(max(a$distance_m), lim, if (no2) "1-hour standard, 188" else "EPA reference concentration, 5", adj = c(1, 1.5), cex = 0.85)
-        legend("bottomleft", lab[unique(a$stat)], col = col[unique(a$stat)], lwd = 2.5, pch = 16, bty = "n")
+        legend("top", lab[unique(a$stat)], col = col[unique(a$stat)], lwd = 2.5, pch = 16, bty = "n", horiz = TRUE, inset = c(0, -0.13), xpd = TRUE)
       }, res = 96)
       output$va_aer_tab <- renderTable({
         r <- va$aermod_runs
         data.frame(Item = c("Model", "Weather", "Stack, per 2,500 kW engine", "Stack height", "Emission rates", "Layout", "Left out"),
-                   Value = c(paste("AERMOD", r$aermod_version[1]), ifelse(is.na(r$weather[1]), "-", substr(r$weather[1], 1, 60)), "490 C, 9 m3/s, 0.5 m across (46 m/s)", "10 m at sites; 5, 10, 15 m for one engine",
-                             "NOx 6.4 g/kWh (0.67 with SCR in an outage), PM 0.20 g/kWh", "Engines 10 m apart on a square grid", "Building downwash, terrain, background"))
+                   Value = c(paste("AERMOD", r$aermod_version[1]), ifelse(is.na(r$weather[1]), "-", sub(" OS_ID.*", "", r$weather[1])), "490 C, 9 m3/s, 0.5 m across (46 m/s)", "10 m at sites; 5, 10, 15 m for one engine",
+                             "NOx 6.4 g/kWh (0.67 with SCR in an outage), PM 0.20 g/kWh", "Engines 10 m apart on a square grid", "Building downwash, terrain, background, 1-minute winds"))
       }, striped = TRUE, spacing = "s")
     }
     output$va_terms <- renderTable({
