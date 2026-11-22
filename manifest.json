@@ -1908,7 +1908,7 @@
   },
   "files": {
     "app.R": {
-      "checksum": "8e7d2ecfc7f8dead9e1b53882469a427"
+      "checksum": "558cfc1a0cd0ccc1ad40e5ee5308be99"
     },
     "data/app_data.rds": {
       "checksum": "e2f637e1fca7864d63965fbd15885f2d"
@@ -1926,10 +1926,10 @@
       "checksum": "8574081edce78d57094d4d1f483bfdeb"
     },
     "data/va_permits.rds": {
-      "checksum": "698dbc24ce27085ed09a9a141583f35e"
+      "checksum": "b8d94fd237c8738f8447150dd0253099"
     },
     "methods.html": {
-      "checksum": "801bedd35fb14d0aad469830d0401d9d"
+      "checksum": "81bc34890ebf8869f1ce9cced94c8ef2"
     },
     "R/calc.R": {
       "checksum": "4ecdb05a1a37266baa9f8c738b6aad11"

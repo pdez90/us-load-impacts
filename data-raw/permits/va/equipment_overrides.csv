@@ -1,0 +1,6 @@
+registration,engines,total_ekw,note
+52403-9,29,32234,"hand-read: 6 x 563 + 5 x 2,446 + 6 x 1,645 + 12 x 563 kW; the parser read 5 engines because counts are written as words without parentheses"
+74052-9,93,211850,"hand-read: engines listed singly, without a count word, added (parser 89 engines, 191,750 kW)"
+81609-5,12,30000,"hand-read: 12 x 2,500 kW; older scanned permit whose equipment list the parser could not read"
+74189-5,37,135150,"hand-read: one 500 kWe set listed singly added (parser 36 engines)"
+74242-2,42,115500,"Vantage VA2. DEQ's assessment of 27 April 2026: 40 emergency and 2 black-start Cat 3516E sets of 2,750 ekW; the site's 8 Solar SMT 130 gas turbines (16.5 MWe each) run as primary power and are not in these columns"

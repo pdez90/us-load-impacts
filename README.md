@@ -89,6 +89,28 @@ Rscript analysis/05_va_permits.R                                               #
 
 Step 08 reads each permit's annual emission limits (tons/yr), engine counts and ratings, testing-hour limits and site address. When a permit sets limits for several groups of engines it uses a facility-wide or combined limit if there is one, the limit covering every engine if limits overlap, and otherwise the sum. One permit on DEQ's list is not available: 74331-1 (Westfax Property Owner A LP / Westfax 4-5A, Fairfax County, issued March 4, 2026). DEQ's link for it opens the permit for Amazon IAD-45 (74333-1), so it is not in the analysis. Values that could not be read reliably (scanned pages, tables drawn as images) were read by hand and are in `data-raw/permits/va/overrides.csv`, each with a note; DEQ's list is in `deq_list.csv` (both tracked in git). Permits replaced by a later one ("supersedes your permit dated ...") or restated in a Title V permit are dropped. Step 08 also records each permit's operating terms: engines fitted with SCR (from its emission-control conditions), the hours each engine may run for all purposes, whether running in grid-operator (PJM) emergencies is allowed, ozone-season and time-of-day limits on testing, and fuel caps. Step 05 models three cases for each site: routine testing (engines x rated kW x the permit's testing hours, or 32 h where none is stated, x 75% load, at Tier 2 rates; SCR not credited because catalysts do not reach temperature in short test runs); testing plus 50 hours of grid support per engine (the federal allowance for non-emergency use of emergency engines; SCR engines at Tier 4 rates in those hours); and every site at its permitted annual limits.
 
+### Checks: site locations, the permit reading, reported emissions
+
+```bash
+Rscript scripts/12_locate_va_sites.R     # sites the Census geocoder missed -> data-raw/permits/va/va_located.csv
+Rscript analysis/05_va_permits.R         # rerun: uses the located sites, hand-read equipment and DEQ's reported emissions
+```
+
+Step 12 looks for each unplaced site in the permit text (coordinates), `hand_locations.csv` (registration, lon, lat, note; entered by hand), EPA's facility record for the same address (`data-raw/echo/`, from `scripts/10_download_echo.R`), and OpenStreetMap's Nominatim (one request every 1.5 s, cached, stops on a refusal; `NO_NOMINATIM=1` skips it). Step 05 keeps a point only if it is in or within 10 km of the county DEQ lists.
+
+Three small tables in `data-raw/permits/va/` are tracked in git: `validation_sample.csv` (25 current permits drawn at random and read again by hand, beside what the parser read), `equipment_overrides.csv` (engine counts and ratings corrected by hand, with a note each) and `deq_reported.csv` (what DEQ says was emitted in 2025: Loudoun County's data centers, and Vantage VA2). Step 05 prints the parser check and adds a fourth case, every permit at the share of its limits that Loudoun's data centers reported using.
+
+### Near-field model (AERMOD)
+
+```bash
+Rscript scripts/13_build_aermod.R        # EPA's source, compiled with gfortran -> build/aermod/bin/aermod  (macOS: brew install gcc)
+Rscript analysis/10_va_aermod.R write    # input files -> build/aermod/runs/
+Rscript analysis/10_va_aermod.R run      # needs weather files (below)
+Rscript analysis/10_va_aermod.R read     # -> analysis/output/va_aermod_*; then rerun analysis/06 and scripts/05_write_manifest.R
+```
+
+AERMOD needs processed weather files (one `.SFC`, one `.PFL`) for Washington Dulles in `data-raw/aermod/met/`. Virginia DEQ does not post them; its Air Assessments staff supply them to permit applicants on request, or they can be built from NOAA observations with EPA's AERMET. Stack heights, exhaust data and building layouts are not in the permits: the script's header lists every assumption. Building downwash is left out, so levels close to a site are understated.
+
 ### Noise screening (generators and cooling)
 
 ```bash

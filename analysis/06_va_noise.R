@@ -144,8 +144,8 @@ E[, test_min_at_once := pmax(1, ceiling(test_engine_hours / (10 * 260)))]   # en
 
 # ---- 4. people inside the contours (geocoded sites only, all sites added together) ----------------------
 CRS_VA <- 3968                                              # Virginia Lambert, metres
-G <- E[grepl("geocoded", placed)]
-say("Sites placed at a geocoded address (used for people counts): %d of %d; %d at county points are left out of them",
+G <- E[!grepl("^county", placed)]
+say("Sites placed at their own location (used for people counts): %d of %d; %d at county points are left out of them",
     nrow(G), nrow(E), nrow(E) - nrow(G))
 pts <- st_transform(st_as_sf(G, coords = c("lon", "lat"), crs = 4326), CRS_VA)
 xy <- st_coordinates(pts); G[, `:=`(x = xy[, 1], y = xy[, 2])]
@@ -253,7 +253,14 @@ say("Assumptions and their effect: analysis/06_va_noise_assumptions.md")
 noise_cols <- setdiff(keep, names(S))
 V <- merge(S, E[, c("registration", noise_cols), with = FALSE], by = "registration", all.x = TRUE)
 grp_air <- if (file.exists(file.path(OUT, "va_permits_groups.csv"))) fread(file.path(OUT, "va_permits_groups.csv")) else NULL
+# Checks and comparisons shown on the Virginia page (each optional): the parser check, DEQ's reported emissions and the
+# share of the limits they come to (analysis/05), and near-field results (analysis/10, after AERMOD has been run).
+opt <- function(f, ...) if (file.exists(f)) as.data.frame(fread(f, ...)) else NULL
 saveRDS(list(sites = as.data.frame(V), people = as.data.frame(people), air_groups = as.data.frame(grp_air),
+             validation = opt("data-raw/permits/va/validation_sample.csv", colClasses = list(character = "registration")),
+             reported = opt("data-raw/permits/va/deq_reported.csv", colClasses = list(character = "id")),
+             reported_ratio = opt(file.path(OUT, "va_permits_reported_ratio.csv")),
+             aermod = opt(file.path(OUT, "va_aermod_results.csv")), aermod_runs = opt(file.path(OUT, "va_aermod_runs.csv")),
              levels = LEVELS, n_list = 194L, missing = "74331-1 (Westfax 4-5A, Fairfax Co., issued 2026-03-04): DEQ's link opens the Amazon IAD-45 permit (74333-1)",
              built = format(Sys.Date())), "data/va_permits.rds", compress = "xz")
 say("App data: data/va_permits.rds (%d permits)", nrow(V))

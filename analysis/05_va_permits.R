@@ -7,7 +7,10 @@
 # Out: analysis/output/va_permits_sites.csv, va_permits_by_county.csv, va_permits_groups.csv,
 #      va_permits_summary.txt, va_permits_map.png
 #
-# Three cases for each current permit (routine testing; testing + 50 h of grid support; permitted maximum):
+# In also (optional): equipment_overrides.csv (hand-read equipment), deq_reported.csv (DEQ's reported emissions),
+#      validation_sample.csv (parser check), va_located.csv (scripts/12)
+# Three cases for each current permit (routine testing; testing + 50 h of grid support; permitted maximum), and a
+# fourth that scales every limit by the share Loudoun County's data centers reported using in 2025:
 #   permitted maximum : the annual tons/yr limits in the permit (NOx, PM2.5 or else PM10, SO2 if set)
 #   routine testing   : engines x rated kW x the permit's maintenance/testing hours per engine (32 h, the median,
 #                       where none is stated) x 75% load, at EPA Tier 2 rates (6.4 g/kWh NOx, 0.2 g/kWh PM), capped
@@ -27,6 +30,14 @@ SHORT_TON <- 0.90718474; B_K <- CRF$krewski$beta; H_GEN <- 10
 app <- readRDS("data/app_data.rds"); app$og <- if (file.exists("data/onsite_groups.rds")) readRDS("data/onsite_groups.rds")
 P <- fread("data-raw/permits/va/va_permits.csv", colClasses = list(character = c("registration", "zip")))
 n_all <- nrow(P); P <- P[current == "yes"]
+# Equipment read by hand where the parser missed engines (found in the validation sample, data-raw/permits/va/validation_sample.csv).
+EQ <- "data-raw/permits/va/equipment_overrides.csv"
+P[, equipment_from := "parser"]
+if (file.exists(EQ)) {
+  eo <- fread(EQ, colClasses = list(character = "registration"))
+  P[, `:=`(engines = as.numeric(engines), total_ekw = as.numeric(total_ekw))]
+  P[eo, on = "registration", `:=`(engines = as.numeric(i.engines), total_ekw = as.numeric(i.total_ekw), equipment_from = "read by hand")]
+}
 
 # ---- where each site is -------------------------------------------------------------------------------
 cty <- as.data.table(st_drop_geometry(app$counties))[state == "VA"]
@@ -58,6 +69,21 @@ if (!is.null(G)) {
   rej <- which(!ok & !is.na(P$glon))
   P[rej, placed := ifelse(office[rej], "county point (address is the owner's office)", "county point (address geocoded far from the permit's county)")]
 }
+# Sites the Census geocoder could not place (new streets, owners' office addresses): scripts/12 looks for coordinates
+# in the permit, EPA's facility record, OpenStreetMap, or a hand-entered point. Kept only if in or within 10 km of the
+# permit's county; hand-entered points are kept as given.
+LOC <- "data-raw/permits/va/va_located.csv"
+if (file.exists(LOC)) {
+  L <- fread(LOC, colClasses = list(character = "registration")); L <- L[is.finite(lon) & is.finite(lat)]
+  k <- which(is.na(P$lon) & P$registration %in% L$registration); j <- match(P$registration[k], L$registration)
+  if (length(k)) {
+    pts <- st_transform(st_as_sf(L[j], coords = c("lon", "lat"), crs = 4326), LCC_PROJ)
+    pol <- st_transform(app$counties[match(P$fips[k], app$counties$fips), ], LCC_PROJ)
+    good <- as.numeric(st_distance(pts, pol, by_element = TRUE)) <= 10000 | L$source[j] == "located by hand"
+    P[k[good], `:=`(lon = L$lon[j[good]], lat = L$lat[j[good]], placed = L$source[j[good]])]
+    P[k[!good], placed := paste0("county point (", L$source[j[!good]], " point is far from the permit's county)")]
+  }
+}
 P[, i := match(fips, app$counties$fips)]
 P[, cell := ifelse(is.na(lon), app$onsite$cell[i] + 1, mapply(function(x, y) locate_cell(app, x, y), lon, lat))]
 P[is.na(lon), `:=`(lon = app$counties$lon[i], lat = app$counties$lat[i])]
@@ -82,6 +108,19 @@ P[, all_test_mwh := ifelse(has_eq, num(total_ekw) * th * LOAD / 1e3, NA)]
 P[, nox_grid := pmin((6.4 * all_test_mwh + ((1 - f_scr) * 6.4 + f_scr * 0.67) * grid_mwh) / 1e3, nox_max)]
 P[, pm25_grid := pmin((0.20 * all_test_mwh + ((1 - f_scr) * 0.20 + f_scr * 0.03) * grid_mwh) / 1e3, fcoalesce(pm25_max, Inf))]
 
+# Reported level: DEQ's own inventory of what Loudoun County's data centers emitted in 2025 (deq_reported.csv), as a share of
+# what the Loudoun permits allow, applied to every permit. A county-wide ratio, not a figure for any one site.
+REP <- "data-raw/permits/va/deq_reported.csv"; rep_ratio <- c(nox = NA_real_, pm25 = NA_real_); rep_src <- NULL
+if (file.exists(REP)) {
+  rep_src <- fread(REP, colClasses = list(character = "id"))
+  for (pl in c("nox", "pm25")) {
+    r <- rep_src[scope == "county" & pollutant == pl]
+    den <- sum(P[fips %in% r$id][[paste0(pl, "_max")]], na.rm = TRUE) / SHORT_TON
+    if (nrow(r) == 1 && den > 0) rep_ratio[pl] <- r$reported_tons / den
+  }
+}
+P[, `:=`(nox_rep = nox_max * rep_ratio[["nox"]], pm25_rep = pm25_max * rep_ratio[["pm25"]])]
+
 run <- function(nox, pm, so2, cell, i) {
   if (!is.finite(nox) || is.na(cell)) return(list(deaths = NA_real_, ses = NULL))
   t <- c(pm25 = fcoalesce(pm, 0), so2 = fcoalesce(so2, 0), nox = nox)
@@ -92,11 +131,13 @@ res_tst <- lapply(seq_len(nrow(P)), function(k) run(P$nox_test[k], P$pm25_test[k
 res_grd <- lapply(seq_len(nrow(P)), function(k) run(P$nox_grid[k], P$pm25_grid[k], 0, P$cell[k], P$i[k]))
 P[, deaths_max := vapply(res_max, `[[`, 0, "deaths")]; P[, deaths_test := vapply(res_tst, `[[`, 0, "deaths")]
 P[, deaths_grid := vapply(res_grd, `[[`, 0, "deaths")]
+res_rep <- lapply(seq_len(nrow(P)), function(k) run(P$nox_rep[k], P$pm25_rep[k], 0, P$cell[k], P$i[k]))
+P[, deaths_rep := vapply(res_rep, `[[`, 0, "deaths")]
 
 keep <- c("registration", "site", "locality", "fips", "issued", "program", "street", "placed", "lon", "lat", "engines", "total_ekw",
           "test_hours_per_engine", "scr_engines", "scr_source", "hours_all_purposes", "grid_emergency_use", "ozone_season_limit", "testing_window",
           "fuel_gal_yr", "co_tpy", "voc_tpy", "nox_tpy", "pm25_tpy", "pm10_tpy", "nox_read_as", "deaths_max", "nox_test", "deaths_test",
-          "nox_grid", "deaths_grid", "test_hours_assumed", "flags")
+          "nox_grid", "deaths_grid", "nox_rep", "deaths_rep", "equipment_from", "test_hours_assumed", "flags")
 fwrite(P[order(-deaths_max), ..keep], file.path(OUT, "va_permits_sites.csv"))
 
 # ---- summaries ----------------------------------------------------------------------------------------
@@ -105,8 +146,8 @@ say("VIRGINIA DATA CENTER AIR PERMITS (DEQ list of 194; %d read, %d current afte
 say("  not available: 74331-1 (Westfax 4-5A, Fairfax Co.); DEQ's link for it opens the Amazon IAD-45 permit (74333-1)")
 say("  engines: %s in %d permits with an equipment list read; rated %.1f GW", format(sum(num(P$engines), na.rm = TRUE), big.mark = ","),
     sum(num(P$engines) > 0, na.rm = TRUE), sum(num(P$total_ekw), na.rm = TRUE) / 1e6)
-say("  located: %d by geocoded address (%d of them just over the listed county's line), %d at the county point (%d owner's office addresses)",
-    sum(grepl("^geocoded", P$placed)), sum(grepl("neighbouring", P$placed)), sum(grepl("^county", P$placed)), sum(grepl("office", P$placed)))
+say("  located: %d at their own address or point (%d of them just over the listed county's line), %d at the county point (%d owner's office addresses)",
+    sum(!grepl("^county", P$placed)), sum(grepl("neighbouring", P$placed)), sum(grepl("^county", P$placed)), sum(grepl("office", P$placed)))
 say("PERMITTED MAXIMUM (every site at its annual limits; short tons/yr)")
 say("  NOx %s  PM2.5 %s   ->  %.1f PM2.5 deaths/yr (Krewski)", format(round(sum(num(P$nox_tpy), na.rm = TRUE)), big.mark = ","),
     format(round(sum(P$pm25, na.rm = TRUE)), big.mark = ","), sum(P$deaths_max, na.rm = TRUE))
@@ -124,6 +165,33 @@ say("THREE CASES, permits with an equipment list (%d; testing hours assumed 32 f
 say("  routine testing            NOx %6s t/yr  %5.1f deaths/yr", format(round(sum(gg$nox_test)), big.mark = ","), sum(gg$deaths_test))
 say("  testing + 50 h grid support NOx %6s t/yr  %5.1f deaths/yr (SCR credited in the grid hours)", format(round(sum(gg$nox_grid)), big.mark = ","), sum(gg$deaths_grid))
 say("  permitted maximum          NOx %6s t/yr  %5.1f deaths/yr", format(round(sum(gg$nox_max, na.rm = TRUE)), big.mark = ","), sum(gg$deaths_max, na.rm = TRUE))
+if (is.finite(rep_ratio[["nox"]])) {
+  lo <- P[fips == "51107"]; lg <- lo[is.finite(deaths_grid)]
+  say("WHAT WAS REPORTED (DEQ's draft 2025 inventory, Loudoun County data centers, short tons)")
+  say("  reported NOx %.1f, PM2.5 %.1f; the %d Loudoun permits allow NOx %s, PM2.5 %s  ->  %.1f%% and %.1f%% of the limits",
+      rep_src[scope == "county" & pollutant == "nox", reported_tons], rep_src[scope == "county" & pollutant == "pm25", reported_tons], nrow(lo),
+      format(round(sum(lo$nox_max, na.rm = TRUE) / SHORT_TON), big.mark = ","), format(round(sum(lo$pm25_max, na.rm = TRUE) / SHORT_TON), big.mark = ","),
+      100 * rep_ratio[["nox"]], 100 * rep_ratio[["pm25"]])
+  say("  our routine-testing estimate for Loudoun (%d permits with equipment): NOx %s short tons, %.1f times the reported total",
+      nrow(lg), format(round(sum(lg$nox_test) / SHORT_TON), big.mark = ","), sum(lg$nox_test) / SHORT_TON / rep_src[scope == "county" & pollutant == "nox", reported_tons])
+  say("  every permit at that share of its limits: NOx %s t/yr, %.1f deaths/yr (all %d permits); %s t/yr, %.1f deaths/yr (the %d with equipment)",
+      format(round(sum(P$nox_rep, na.rm = TRUE)), big.mark = ","), sum(P$deaths_rep, na.rm = TRUE), nrow(P),
+      format(round(sum(gg$nox_rep, na.rm = TRUE)), big.mark = ","), sum(gg$deaths_rep, na.rm = TRUE), nrow(gg))
+  say("  the 2025 inventory covers sites running in 2025; the permits include sites not yet built, so the share for a running site is higher")
+  fwrite(data.table(pollutant = names(rep_ratio), share_of_permitted = rep_ratio), file.path(OUT, "va_permits_reported_ratio.csv"))
+}
+VAL <- "data-raw/permits/va/validation_sample.csv"
+if (file.exists(VAL)) {
+  v <- fread(VAL); rel <- function(a, b) abs(fcoalesce(as.numeric(a), 0) - b) / b
+  say("PARSER CHECK (%d current permits drawn at random, read again by hand)", nrow(v))
+  say("  NOx limit: exact in %d; engine count: exact in %d, within 5%% in %d; rated kW: within 0.5%% in %d; every miss reads low on equipment",
+      sum(rel(v$nox_parser, v$nox_hand) < 1e-6), sum(v$engines_parser == v$engines_hand), sum(rel(v$engines_parser, v$engines_hand) <= 0.05),
+      sum(rel(v$kw_parser, v$kw_hand) <= 0.005))
+  say("  sample total: parser %s engines and %.2f GW, by hand %s and %.2f GW (%.1f%% and %.1f%% low)", format(sum(v$engines_parser), big.mark = ","),
+      sum(v$kw_parser, na.rm = TRUE) / 1e6, format(sum(v$engines_hand), big.mark = ","), sum(v$kw_hand) / 1e6,
+      100 * (1 - sum(v$engines_parser) / sum(v$engines_hand)), 100 * (1 - sum(v$kw_parser, na.rm = TRUE) / sum(v$kw_hand)))
+  say("  equipment replaced with the hand reading for %d permits (equipment_overrides.csv)", sum(P$equipment_from == "read by hand"))
+}
 gx <- copy(gg); gx[, f_scr := 0]
 say("  grid support if no engine had SCR: NOx %s t/yr", format(round(sum(pmin((6.4 * gx$all_test_mwh + 6.4 * gx$grid_mwh) / 1e3, gx$nox_max))), big.mark = ","))
 byc <- P[, .(permits = .N, engines = sum(num(engines), na.rm = TRUE), gw = sum(num(total_ekw), na.rm = TRUE) / 1e6,
@@ -147,7 +215,7 @@ par(mar = c(0.5, 0.5, 2.5, 0.5))
 plot(st_geometry(va), col = "grey96", border = "grey75", main = "Virginia data center generator permits: permitted NOx (circle area ~ tons/yr)")
 o <- P[is.finite(num(nox_tpy))][order(-num(nox_tpy))]
 points(o$lon, o$lat, pch = 21, cex = 0.4 + 2.2 * sqrt(num(o$nox_tpy) / max(num(o$nox_tpy))),
-       bg = adjustcolor(ifelse(grepl("^geocoded", o$placed), "#c0392b", "#7f8c8d"), 0.5), col = "grey30", lwd = 0.4)
+       bg = adjustcolor(ifelse(!grepl("^county", o$placed), "#c0392b", "#7f8c8d"), 0.5), col = "grey30", lwd = 0.4)
 legend("bottomleft", c("site address", "county point (address not located)"), pt.bg = adjustcolor(c("#c0392b", "#7f8c8d"), 0.6),
        pch = 21, pt.cex = 1.3, bty = "n", cex = 0.8)
 dev.off()
