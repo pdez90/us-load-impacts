@@ -30,16 +30,26 @@ f <- list.files(SRC, pattern = "\\.(f|f90|for)$", ignore.case = TRUE)
 if (!length(f)) stop("no Fortran source found in ", ZIP)
 cat(length(f), "source files\n")
 
+# macOS: (1) gfortran older than macOS 26 works out a deployment target ("18.0") that Apple's tools reject, so one is set;
+# (2) on Apple silicon the compiler is run as arm64 even when R itself is the Intel build, because Apple's command-line
+# tools there are arm64 only.
+GF <- function(args, ...) system2("gfortran", args, ...)
+if (Sys.info()[["sysname"]] == "Darwin") {
+  if (!nzchar(Sys.getenv("MACOSX_DEPLOYMENT_TARGET"))) Sys.setenv(MACOSX_DEPLOYMENT_TARGET = "15.0")
+  arm <- tryCatch(suppressWarnings(system2("sysctl", c("-n", "hw.optional.arm64"), stdout = TRUE, stderr = FALSE)), error = function(e) "0")
+  if (identical(arm, "1")) GF <- function(args, ...) system2("arch", c("-arm64", "gfortran", args), ...)
+  cat("macOS: deployment target", Sys.getenv("MACOSX_DEPLOYMENT_TARGET"), if (identical(arm, "1")) "; compiling as arm64", "\n")
+}
 # modules first; then everything else, retrying files that were waiting on another file's module, for as long as a pass compiles something
 old <- setwd(SRC)
-comp <- function(x) system2("gfortran", c("-O2", "-c", "-w", shQuote(x)), stdout = FALSE, stderr = FALSE) == 0
+comp <- function(x) GF(c("-O2", "-c", "-w", shQuote(x)), stdout = FALSE, stderr = FALSE) == 0
 mods <- f[grepl("^mod", f, ignore.case = TRUE)]; todo <- c(mods, setdiff(f, mods))
 for (pass in 1:40) {
   done <- vapply(todo, comp, TRUE); cat(sprintf("pass %d: %d compiled, %d waiting\n", pass, sum(done), sum(!done)))
   todo <- todo[!done]; if (!length(todo) || !any(done)) break
 }
-if (length(todo)) { system2("gfortran", c("-O2", "-c", shQuote(todo[1]))); setwd(old); stop("could not compile: ", paste(todo, collapse = ", ")) }
+if (length(todo)) { GF(c("-O2", "-c", shQuote(todo[1]))); setwd(old); stop("could not compile: ", paste(todo, collapse = ", ")) }
 exe <- file.path("..", "bin", PROG)
-linked <- system2("gfortran", c("-O2", "-o", exe, list.files(pattern = "\\.o$"))) == 0
+unlink(exe); linked <- GF(c("-O2", "-o", exe, list.files(pattern = "\\.o$"))) == 0
 setwd(old); if (!linked) stop("linking failed")
 cat("built", file.path(BIN, PROG), "\n")
