@@ -96,9 +96,22 @@ Rscript scripts/12_locate_va_sites.R     # sites the Census geocoder missed -> d
 Rscript analysis/05_va_permits.R         # rerun: uses the located sites, hand-read equipment and DEQ's reported emissions
 ```
 
-Step 12 looks for each unplaced site in the permit text (coordinates), `hand_locations.csv` (registration, lon, lat, note; entered by hand), EPA's facility record for the same address (`data-raw/echo/`, from `scripts/10_download_echo.R`), and OpenStreetMap's Nominatim (one request every 1.5 s, cached, stops on a refusal; `NO_NOMINATIM=1` skips it). Step 05 keeps a point only if it is in or within 10 km of the county DEQ lists.
+Step 12 looks for each unplaced site in the permit text (coordinates), `hand_locations.csv` (registration, lon, lat, note; entered by hand), EPA's facility record for the same address (`data-raw/echo/`, from `scripts/10_download_echo.R`), Loudoun County's public address points (for Loudoun permits; `NO_LOUDOUN=1` skips it), and OpenStreetMap's Nominatim (one request every 1.5 s, cached, stops on a refusal; `NO_NOMINATIM=1` skips it). Step 05 keeps a point only if it is in or within 10 km of the county DEQ lists.
 
 Three small tables in `data-raw/permits/va/` are tracked in git: `validation_sample.csv` (25 current permits drawn at random and read again by hand, beside what the parser read), `equipment_overrides.csv` (engine counts and ratings corrected by hand, with a note each) and `deq_reported.csv` (what DEQ says was emitted in 2025: Loudoun County's data centers, and Vantage VA2). Step 05 prints the parser check and adds a fourth case, every permit at the share of its limits that Loudoun's data centers reported using.
+
+### Who is exposed, within Virginia
+
+The Virginia page compares groups two ways: among Virginia residents, and across the contiguous US. The national figures come with the main build. The Virginia ones need each site cell's PM2.5 by group counting Virginians only, a second, short pass over the ISRM:
+
+```bash
+Rscript scripts/06_blockgroups.R         # also writes build/bg_cell_groups_va.csv (Virginia's block groups on the model grid)
+Rscript analysis/05_va_permits.R         # writes build/va_site_cells.csv (the grid cells that hold a permitted site)
+python3 scripts/03_isrm_fields.py --isrm data-raw/isrm_v1.2.1.ncf --sites cells --no-fields --groups build/bg_cell_groups_va.csv --site-cells build/va_site_cells.csv --tag va
+Rscript analysis/05_va_permits.R         # again: now adds the within-Virginia column
+```
+
+Rerun the third and fourth lines whenever sites move to new grid cells (step 05 says so). Population groups everywhere in this repository are from the American Community Survey 2019-2023 5-year tables at the census block group (2023 boundaries); income fifths rank all US block groups by median household income, each holding a fifth of the US population.
 
 ### Near-field model (AERMOD)
 

@@ -14,3 +14,4 @@ county -> subregion: 3108 by containment, 1 by nearest polygon; 22 subregions us
 per-cell source weights for on-site power: 52411 cells
 cell sizes (km): 1: 19176, 2: 4558, 4: 13502, 12: 3796, 24: 3203, 48: 8176
 All contiguous-US generation in the data year: 4158 TWh, 3681 PM2.5 deaths/yr at Krewski (RR 1.06 per 10 ug/m3)
+group exposure for on-site sources: 52411 cells x 16 groups -> data/onsite_groups.rds (11.3 MB)

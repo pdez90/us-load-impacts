@@ -32,24 +32,24 @@ Digital Third Second Manassas, LLC & Digital Carver Brickyard, LLC  [outage: eve
 Digital Third Second Manassas, LLC & Digital Carver Brickyard, LLC  [routine testing, 25 h per engine a year; 266 x 2,967 kW; stack 10 m]
   annual mean            50m 0.0291 | 100m 0.0611 | 200m 0.123 | 500m 0.0822 | 1000m 0.031 | 2000m 0.0104 | 5000m 0.00326
 
-Amazon Data Services Inc IAD-264  [outage: every engine at full load; 49 x 2,250 kW; stack 10 m]
-  highest hour           50m 710 | 100m 1850 | 200m 3040 | 500m 1700 | 1000m 866 | 2000m 459 | 5000m 340
+SI NVA02D, LLC  [outage: every engine at full load; 44 x 2,915 kW; stack 10 m]
+  highest hour           50m 738 | 100m 1820 | 200m 3340 | 500m 1820 | 1000m 904 | 2000m 460 | 5000m 348
                          at or above 188 ug/m3 (the 1-hour NO2 standard) to the edge of the grid (5 km) and beyond
-  8th-highest daily max  50m 391 | 100m 1110 | 200m 2160 | 500m 1510 | 1000m 770 | 2000m 409 | 5000m 305
+  8th-highest daily max  50m 415 | 100m 1060 | 200m 2060 | 500m 1590 | 1000m 791 | 2000m 402 | 5000m 279
                          at or above 188 ug/m3 (the 1-hour NO2 standard) to the edge of the grid (5 km) and beyond
-  mean of all hours      50m 12.6 | 100m 45.5 | 200m 101 | 500m 67.7 | 1000m 35.6 | 2000m 21.5 | 5000m 11.4
+  mean of all hours      50m 12.9 | 100m 39.9 | 200m 94 | 500m 66.7 | 1000m 34.6 | 2000m 20.9 | 5000m 11.6
 
-Amazon Data Services Inc IAD-264  [routine testing, 32 h per engine a year; 49 x 2,250 kW; stack 10 m]
-  annual mean            50m 0.00362 | 100m 0.0148 | 200m 0.0313 | 500m 0.0169 | 1000m 0.00608 | 2000m 0.00201 | 5000m 0.00063
+SI NVA02D, LLC  [routine testing, 32 h per engine a year; 44 x 2,915 kW; stack 10 m]
+  annual mean            50m 0.00371 | 100m 0.0139 | 200m 0.0296 | 500m 0.0175 | 1000m 0.00649 | 2000m 0.00216 | 5000m 0.00068
 
-Aerospace Data Facility - East  [outage: every engine at full load; 21 x 1,623 kW; stack 10 m]
-  highest hour           50m 240 | 100m 721 | 200m 847 | 500m 432 | 1000m 216 | 2000m 141 | 5000m 131
-                         at or above 188 ug/m3 (the 1-hour NO2 standard) out to 1,000 m
-  8th-highest daily max  50m 140 | 100m 378 | 200m 680 | 500m 386 | 1000m 195 | 2000m 138 | 5000m 126
-                         at or above 188 ug/m3 (the 1-hour NO2 standard) out to 1,000 m
-  mean of all hours      50m 3.5 | 100m 16.9 | 200m 31.4 | 500m 21.2 | 1000m 13 | 2000m 7.91 | 5000m 4.01
+21110 Ridgetop Circle LLC  [outage: every engine at full load; 24 x 1,667 kW; stack 10 m]
+  highest hour           50m 398 | 100m 1050 | 200m 1350 | 500m 713 | 1000m 358 | 2000m 213 | 5000m 154
+                         at or above 188 ug/m3 (the 1-hour NO2 standard) out to 2,000 m
+  8th-highest daily max  50m 202 | 100m 588 | 200m 1080 | 500m 634 | 1000m 320 | 2000m 187 | 5000m 142
+                         at or above 188 ug/m3 (the 1-hour NO2 standard) out to 1,500 m
+  mean of all hours      50m 6 | 100m 24.6 | 200m 49.7 | 500m 31.8 | 1000m 19 | 2000m 11.3 | 5000m 6
 
-Aerospace Data Facility - East  [routine testing, 32 h per engine a year; 21 x 1,623 kW; stack 10 m]
-  annual mean            50m 0.0015 | 100m 0.00668 | 200m 0.0126 | 500m 0.00602 | 1000m 0.00209 | 2000m 0.00069 | 5000m 0.00021
+21110 Ridgetop Circle LLC  [routine testing, 32 h per engine a year; 24 x 1,667 kW; stack 10 m]
+  annual mean            50m 0.00154 | 100m 0.00734 | 200m 0.0146 | 500m 0.007 | 1000m 0.00244 | 2000m 0.00081 | 5000m 0.00025
 
 Diesel PM: EPA's reference concentration for long-term exposure is 5 ug/m3; California's cancer unit risk is 300 in a million per ug/m3 over a lifetime.

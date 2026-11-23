@@ -123,6 +123,16 @@ pop_g <- rowSums(Gp)
 cg_out <- data.table(cell = seq_len(nrow(cells)) - 1L)
 for (g in names(groups)) { set(cg_out, j = paste0("p_", g), value = signif(Gp[g, ], 6)); set(cg_out, j = paste0("d_", g), value = signif(Gd[g, ], 6)) }
 fwrite(cg_out, file.path(BUILD, "bg_cell_groups.csv"))
+# the same for Virginia residents only (state FIPS 51), for comparisons within Virginia (analysis/05_va_permits.R)
+Pv <- P[substr(GEOID, 1, 2) == "51"]
+if (nrow(Pv)) {
+  Gpv <- toM(Pv[, lapply(.SD, function(x) sum(x * w)), by = cell, .SDcols = unique(groups)])
+  Gdv <- toM(Pv[, lapply(.SD, function(x) sum(x * w * mort)), by = cell, .SDcols = unique(groups)])
+  cv <- data.table(cell = seq_len(nrow(cells)) - 1L)
+  for (g in names(groups)) { set(cv, j = paste0("p_", g), value = signif(Gpv[g, ], 6)); set(cv, j = paste0("d_", g), value = signif(Gdv[g, ], 6)) }
+  fwrite(cv, file.path(BUILD, "bg_cell_groups_va.csv"))
+  note("Virginia residents: %.2f million people in %d block groups -> build/bg_cell_groups_va.csv", sum(Gpv["Total", ]) / 1e6, uniqueN(Pv$GEOID))
+}
 X <- (Gp %*% Fm) / pop_g                               # population-weighted mean dPM2.5 per unit field
 M <- Gd %*% Fm                                         # sum of people x baseline mortality x dPM2.5 (x beta = deaths)
 assert(abs(pop_g[["Total"]] / sum(D$pop) - 1) < 1e-6, "population not conserved in the block-group step")

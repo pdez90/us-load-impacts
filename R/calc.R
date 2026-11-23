@@ -18,8 +18,14 @@ gemm_beta <- function(c0 = 8, theta = 0.1430, alpha = 1.6, mu = 15.5, nu = 36.8,
 }
 CRF <- list(
   krewski = list(label = "Krewski et al. 2009 (ACS): RR 1.06 per 10 ug/m3", beta = log(1.06) / 10),
+  orellano = list(label = "Orellano et al. 2024 (WHO meta-analysis): RR 1.095 per 10 ug/m3", beta = log(1.095) / 10),
   lepeule = list(label = "Lepeule et al. 2012 (Six Cities): RR 1.14 per 10 ug/m3", beta = log(1.14) / 10),
   gemm    = list(label = "GEMM, Burnett et al. 2018 (as Chen et al. 2026): slope at 8 ug/m3, about RR 1.09 per 10 ug/m3", beta = gemm_beta()))
+
+#' The ISRM's chemistry is that of 2005. As SO2 and NOx have fallen since, a tonne of NOx forms less particulate and
+#' a tonne of SO2 more. Factors for 2012 relative to 2005 from Holt et al. 2015 (Environ. Sci. Technol. 49:4834), as
+#' applied to the ISRM by Thakrar et al. 2024 and Bekbulat et al. 2025 (who extend the trend to 2019). Primary PM2.5 is unchanged.
+CHEM_2012 <- c(pm25 = 1, so2 = 1.23, nox = 0.71)
 
 PRESETS <- list(
   dc_evap  = list(label = "Data center, evaporative cooling", basis = "it", pue = 1.20, lf = 0.70, wue = 1.8),

@@ -170,3 +170,9 @@ test_that("the Shiny server runs", {
     session$setInputs(scenario = "avg", subrgn = sort(unique(app$mix$subrgn))[1], mw = NA); expect_match(output$vb_twh, "^0 TWh")
   })
 })
+
+test_that("Orellano slope and the 2012 chemistry factors are as documented", {
+  expect_equal(CRF$orellano$beta, log(1.095) / 10)
+  expect_gt(CRF$orellano$beta, CRF$krewski$beta); expect_lt(CRF$orellano$beta, CRF$lepeule$beta)
+  expect_equal(unname(CHEM_2012[c("pm25", "so2", "nox")]), c(1, 1.23, 0.71))
+})

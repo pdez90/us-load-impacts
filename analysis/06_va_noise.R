@@ -200,6 +200,9 @@ va <- D[substr(GEOID, 1, 2) == "51", lapply(.SD, sum, na.rm = TRUE), .SDcols = G
 people[, va_share := unlist(va)[group] / va$pop]
 people[, share := people / people[group == "pop"], by = .(source, case, level_dba)]
 people[, ratio_to_va := ifelse(group == "pop", NA_real_, share / va_share)]
+us <- D[!substr(GEOID, 1, 2) %in% c("02", "15", "72"), lapply(.SD, sum, na.rm = TRUE), .SDcols = GROUPS]   # contiguous US, as for air
+people[, us_share := unlist(us)[group] / us$pop]
+people[, ratio_to_us := ifelse(group == "pop", NA_real_, share / us_share)]
 fwrite(people, file.path(OUT, "va_noise_people.csv"))
 
 # ---- 5. outputs ---------------------------------------------------------------------------------------

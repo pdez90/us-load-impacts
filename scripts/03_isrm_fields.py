@@ -222,6 +222,8 @@ def main():
     ap.add_argument("--no-fields", action="store_true", help="skip the plant fields (only source weights)")
     ap.add_argument("--groups", default=None, help="build/bg_cell_groups.csv from 06_blockgroups.R: with --sites cells, also write "
                     "isrm_source_groups.csv, each site cell's per-tonne exposure and deaths for every population group")
+    ap.add_argument("--site-cells", default=None, help="csv with a column 'cell' (0-based ISRM cell): with --sites cells --no-fields --groups --tag, "
+                    "compute the group file for these site cells only (a few hundred matrix rows, not all of them)")
     ap.add_argument("--test", action="store_true", help="skip the plausibility checks that only hold for the real ISRM")
     a = ap.parse_args()
     if not os.path.exists(a.isrm): die("%s not found (run scripts/01_download.sh)" % a.isrm)
@@ -329,6 +331,12 @@ def main():
         cx, cy = lcc(np.array([fnum(c["lon"]) for c in counties]), np.array([fnum(c["lat"]) for c in counties]))
         ccell = locate(cx, cy, W, S, E, N)
         log("%d of %d county points fall in a grid cell" % ((ccell >= 0).sum(), len(counties)))
+    elif a.sites == "cells" and a.site_cells:                # a named subset of site cells: group file only
+        if not (a.no_fields and a.groups and a.tag): die("--site-cells needs --no-fields, --groups and --tag (so the main outputs are not replaced)")
+        sub = sorted({int(float(r["cell"])) for r in read_csv(a.site_cells)})
+        if not sub or sub[0] < 0 or sub[-1] >= n: die("--site-cells: cell numbers must be 0 to %d" % (n - 1))
+        counties = [{"fips": str(i)} for i in sub]; ccell = np.array(sub, dtype=np.int64)
+        log("%d site cells from %s" % (len(sub), a.site_cells))
     elif a.sites == "cells":                                 # every grid cell is a possible site
         counties = [{"fips": str(i)} for i in range(n)]; ccell = np.arange(n)
     else:
@@ -387,7 +395,7 @@ def main():
                                              else ["0"] * (2 * len(site_layers) * len(pkeys))))
     if a.sites == "county":
         write_sources("isrm_source%s.csv" % tag, [c["fips"] for c in counties], ccell, range(len(counties)))
-    elif a.sites == "cells":                                 # all cells, plus the county file read off the cell holding each county point
+    elif a.sites == "cells" and not a.site_cells:            # all cells, plus the county file read off the cell holding each county point
         write_sources("isrm_source_cells%s.csv" % tag, range(n), range(n), range(n))
         cp = read_csv(os.path.join(a.build, "county_points.csv"))
         kx, ky = lcc(np.array([fnum(c["lon"]) for c in cp]), np.array([fnum(c["lat"]) for c in cp])); kc = locate(kx, ky, W, S, E, N)
@@ -398,9 +406,9 @@ def main():
             w = csv.writer(f)
             hdr = [(q, g, pi, li) for q in ("e", "k") for g in range(len(gsets)) for li in range(len(site_layers)) for pi in range(len(pkeys))]
             w.writerow(["cell"] + ["%s_%s_%s_l%d" % (q, gsets[g], short[pkeys[pi]], site_layers[li]) for q, g, pi, li in hdr])
-            for i in range(n):
-                w.writerow([i] + ["%.4g" % (EG if q == "e" else KG)[i, li, pi, g] for q, g, pi, li in hdr])
-        log("wrote isrm_source_groups%s.csv: %d site cells x %d groups" % (tag, n, len(gsets)))
+            for i in range(len(counties)):
+                w.writerow([int(ccell[i])] + ["%.4g" % (EG if q == "e" else KG)[i, li, pi, g] for q, g, pi, li in hdr])
+        log("wrote isrm_source_groups%s.csv: %d site cells x %d groups" % (tag, len(counties), len(gsets)))
     if a.no_fields:                                          # source weights only: keep the metadata from the full run
         log("--no-fields: %s left as it was" % ("isrm_meta%s.json" % tag)); return
     meta = {"isrm_file": os.path.basename(a.isrm), "cdf_version": H["version"], "n_cells": int(n), "sr_layers": layers,

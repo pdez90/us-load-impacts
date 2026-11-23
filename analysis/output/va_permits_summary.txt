@@ -1,29 +1,33 @@
 VIRGINIA DATA CENTER AIR PERMITS (DEQ list of 194; 193 read, 191 current after replaced permits are dropped)
   not available: 74331-1 (Westfax 4-5A, Fairfax Co.); DEQ's link for it opens the Amazon IAD-45 permit (74333-1)
   engines: 11,607 in 178 permits with an equipment list read; rated 29.5 GW
-  located: 175 at their own address or point (5 of them just over the listed county's line), 16 at the county point (0 owner's office addresses)
+  located: 189 at their own address or point (5 of them just over the listed county's line), 2 at the county point (0 owner's office addresses)
 PERMITTED MAXIMUM (every site at its annual limits; short tons/yr)
-  NOx 14,613  PM2.5 893   ->  35.2 PM2.5 deaths/yr (Krewski)
-  Northern Virginia (Loudoun, Prince William, Fairfax and cities): NOx 11,097 tons/yr, 31.9 deaths/yr
+  NOx 14,613  PM2.5 893   ->  36.2 PM2.5 deaths/yr (Krewski)
+  Northern Virginia (Loudoun, Prince William, Fairfax and cities): NOx 11,097 tons/yr, 32.9 deaths/yr
 OPERATING TERMS
   engines with SCR: 3,959 of 11,607 (34%); permits allowing use in grid-operator emergencies: 158; 500-hour all-purpose cap: 101
   testing restricted in ozone season: 119 permits; testing window set: 115 (mostly 7 am-5 pm); annual fuel caps: 87 permits, 67.8 million gal
 THREE CASES, permits with an equipment list (171; testing hours assumed 32 for 103)
-  routine testing            NOx  4,544 t/yr    8.6 deaths/yr
-  testing + 50 h grid support NOx  7,418 t/yr   15.1 deaths/yr (SCR credited in the grid hours)
-  permitted maximum          NOx 12,139 t/yr   33.2 deaths/yr
+  routine testing            NOx  4,544 t/yr    8.8 deaths/yr
+  testing + 50 h grid support NOx  7,418 t/yr   15.5 deaths/yr (SCR credited in the grid hours)
+  permitted maximum          NOx 12,139 t/yr   34.1 deaths/yr
 WHAT WAS REPORTED (DEQ's draft 2025 inventory, Loudoun County data centers, short tons)
   reported NOx 842.3, PM2.5 68.1; the 90 Loudoun permits allow NOx 7,242, PM2.5 495  ->  11.6% and 13.7% of the limits
   our routine-testing estimate for Loudoun (80 permits with equipment): NOx 2,542 short tons, 3.0 times the reported total
-  every permit at that share of its limits: NOx 1,542 t/yr, 4.4 deaths/yr (all 191 permits); 1,412 t/yr, 4.2 deaths/yr (the 171 with equipment)
+  every permit at that share of its limits: NOx 1,542 t/yr, 4.5 deaths/yr (all 191 permits); 1,412 t/yr, 4.3 deaths/yr (the 171 with equipment)
   the 2025 inventory covers sites running in 2025; the permits include sites not yet built, so the share for a running site is higher
 PARSER CHECK (25 current permits drawn at random, read again by hand)
   NOx limit: exact in 24; engine count: exact in 19, within 5% in 22; rated kW: within 0.5% in 21; every miss reads low on equipment
   sample total: parser 1,338 engines and 3.51 GW, by hand 1,382 and 3.59 GW (3.2% and 2.2% low)
   equipment replaced with the hand reading for 5 permits (equipment_overrides.csv)
+SENSITIVITIES (deaths/yr: reported level, all permits | routine testing | grid support | permitted maximum, permits with equipment | maximum, all)
+  Krewski (main)                 4.5 | 8.8 | 15.5 | 34.1 | 36.2
+  Orellano 2024, RR 1.095        7.0 | 13.8 | 24.1 | 53.2 | 56.3
+  Krewski, 2012 chemistry        3.9 | 7.2 | 12.7 | 29.7 | 31.3   (NOx to particulate -29%, SO2 +23% relative to the ISRM's 2005)
   grid support if no engine had SCR: NOx 7,938 t/yr
 BY LOCALITY (permitted maximum)
-  Loudoun Co.           90 permits  5,901 engines  15.1 GW  NOx  7,242 tons/yr  23.4 deaths/yr
+  Loudoun Co.           90 permits  5,901 engines  15.1 GW  NOx  7,242 tons/yr  24.4 deaths/yr
   Prince William Co.    30 permits  2,036 engines   5.4 GW  NOx  2,351 tons/yr  4.9 deaths/yr
   Fairfax Co.           28 permits    567 engines   1.3 GW  NOx  1,217 tons/yr  3.2 deaths/yr
   Mecklenburg Co.       10 permits    808 engines   1.8 GW  NOx  1,115 tons/yr  0.9 deaths/yr
@@ -31,11 +35,11 @@ BY LOCALITY (permitted maximum)
   Culpeper Co.           4 permits    194 engines   0.5 GW  NOx    340 tons/yr  0.4 deaths/yr
   Manassas City          3 permits    213 engines   0.5 GW  NOx    287 tons/yr  0.4 deaths/yr
   Fauquier Co.           4 permits     58 engines   0.1 GW  NOx    279 tons/yr  0.3 deaths/yr
-WHO IS EXPOSED (all sites at their limits; exposure relative to everyone in the contiguous US)
-  White (non-Latino)           x0.79
-  Black (non-Latino)           x1.34
-  Asian (non-Latino)           x2.60
-  Latino                       x0.94
-  Lowest-income fifth          x0.21
-  Highest-income fifth         x3.05
-  Below the poverty line       x0.57
+WHO IS EXPOSED (all sites at their limits; block groups, ACS 2019-2023). Exposure relative to everyone in the contiguous US, and among Virginia residents relative to all Virginians
+  White (non-Latino)           US x0.78   Virginia x0.79
+  Black (non-Latino)           US x1.32   Virginia x0.60
+  Asian (non-Latino)           US x2.69   Virginia x2.64
+  Latino                       US x0.94   Virginia x1.79
+  Lowest-income fifth          US x0.20   Virginia x0.14
+  Highest-income fifth         US x3.08   Virginia x2.08
+  Below the poverty line       US x0.57   Virginia x0.61

@@ -133,11 +133,17 @@ P[, deaths_max := vapply(res_max, `[[`, 0, "deaths")]; P[, deaths_test := vapply
 P[, deaths_grid := vapply(res_grd, `[[`, 0, "deaths")]
 res_rep <- lapply(seq_len(nrow(P)), function(k) run(P$nox_rep[k], P$pm25_rep[k], 0, P$cell[k], P$i[k]))
 P[, deaths_rep := vapply(res_rep, `[[`, 0, "deaths")]
+# Sensitivity: the same four cases with the ISRM's 2005 chemistry adjusted to 2012 (CHEM_2012 in R/calc.R: NOx forms 29% less
+# particulate, SO2 23% more). Deaths are linear in emissions, so scaling the emissions is the same as scaling the sensitivities.
+chem <- function(nox, pm, so2) vapply(seq_len(nrow(P)), function(k)
+  run(nox[k] * CHEM_2012[["nox"]], pm[k], fcoalesce(so2[k], 0) * CHEM_2012[["so2"]], P$cell[k], P$i[k])$deaths, 0)
+P[, `:=`(deaths_max_chem = chem(nox_max, pm25_max, so2_max), deaths_test_chem = chem(nox_test, pm25_test, rep(0, .N)),
+         deaths_grid_chem = chem(nox_grid, pm25_grid, rep(0, .N)), deaths_rep_chem = chem(nox_rep, pm25_rep, rep(0, .N)))]
 
 keep <- c("registration", "site", "locality", "fips", "issued", "program", "street", "placed", "lon", "lat", "engines", "total_ekw",
           "test_hours_per_engine", "scr_engines", "scr_source", "hours_all_purposes", "grid_emergency_use", "ozone_season_limit", "testing_window",
           "fuel_gal_yr", "co_tpy", "voc_tpy", "nox_tpy", "pm25_tpy", "pm10_tpy", "nox_read_as", "deaths_max", "nox_test", "deaths_test",
-          "nox_grid", "deaths_grid", "nox_rep", "deaths_rep", "equipment_from", "test_hours_assumed", "flags")
+          "nox_grid", "deaths_grid", "nox_rep", "deaths_rep", "deaths_max_chem", "deaths_test_chem", "deaths_grid_chem", "deaths_rep_chem", "equipment_from", "test_hours_assumed", "flags")
 fwrite(P[order(-deaths_max), ..keep], file.path(OUT, "va_permits_sites.csv"))
 
 # ---- summaries ----------------------------------------------------------------------------------------
@@ -192,6 +198,12 @@ if (file.exists(VAL)) {
       100 * (1 - sum(v$engines_parser) / sum(v$engines_hand)), 100 * (1 - sum(v$kw_parser, na.rm = TRUE) / sum(v$kw_hand)))
   say("  equipment replaced with the hand reading for %d permits (equipment_overrides.csv)", sum(P$equipment_from == "read by hand"))
 }
+say("SENSITIVITIES (deaths/yr: reported level, all permits | routine testing | grid support | permitted maximum, permits with equipment | maximum, all)")
+sens <- function(f, a = "") sprintf("%.1f | %.1f | %.1f | %.1f | %.1f", f * sum(P[[paste0("deaths_rep", a)]], na.rm = TRUE), f * sum(gg[[paste0("deaths_test", a)]]),
+                                    f * sum(gg[[paste0("deaths_grid", a)]]), f * sum(gg[[paste0("deaths_max", a)]]), f * sum(P[[paste0("deaths_max", a)]], na.rm = TRUE))
+say("  Krewski (main)                 %s", sens(1))
+say("  Orellano 2024, RR 1.095        %s", sens(CRF$orellano$beta / B_K))
+say("  Krewski, 2012 chemistry        %s   (NOx to particulate -29%%, SO2 +23%% relative to the ISRM's 2005)", sens(1, "_chem"))
 gx <- copy(gg); gx[, f_scr := 0]
 say("  grid support if no engine had SCR: NOx %s t/yr", format(round(sum(pmin((6.4 * gx$all_test_mwh + 6.4 * gx$grid_mwh) / 1e3, gx$nox_max))), big.mark = ","))
 byc <- P[, .(permits = .N, engines = sum(num(engines), na.rm = TRUE), gw = sum(num(total_ekw), na.rm = TRUE) / 1e6,
@@ -202,11 +214,32 @@ for (k in seq_len(min(8, nrow(byc)))) with(byc[k], say("  %-20s %3d permits %6s 
                                                          locality, permits, format(engines, big.mark = ","), gw, format(round(nox_tpy), big.mark = ","), deaths_max))
 # who is exposed: all sites at their limits
 grp <- Reduce(add_ses, Filter(Negate(is.null), lapply(res_max, `[[`, "ses")))
+# The same among Virginia residents only. Needs each site cell's exposure by group for Virginians, which is a second
+# pass over the ISRM (scripts/03 --site-cells) with Virginia's block groups (build/bg_cell_groups_va.csv, scripts/06).
+BUILD <- Sys.getenv("USLOAD_BUILD", "build"); dir.create(BUILD, showWarnings = FALSE)
+fwrite(data.table(cell = sort(unique(P$cell[is.finite(P$nox_max) & !is.na(P$cell)])) - 1L), file.path(BUILD, "va_site_cells.csv"))
+f_vg <- file.path(BUILD, "isrm_source_groups_va.csv"); f_vp <- file.path(BUILD, "bg_cell_groups_va.csv")
+if (!is.null(grp)) grp$ratio_va <- NA_real_
+if (!is.null(grp) && file.exists(f_vg) && file.exists(f_vp)) {
+  vg <- fread(f_vg); vp <- fread(f_vp); ok <- is.finite(P$nox_max) & !is.na(P$cell)
+  if (all((P$cell[ok] - 1L) %in% vg$cell)) {
+    sl <- app$meta$site_layers + 1; w <- layer_weights(min(H_GEN, app$meta$layer_mid_m[max(sl)]), app$meta$layer_mid_m)[sl]
+    ex_va <- vapply(grp$group, function(g) {
+      tot <- 0
+      for (k in which(ok)) { r <- match(P$cell[k] - 1L, vg$cell); t <- c(pm25 = fcoalesce(P$pm25_max[k], 0), so2 = fcoalesce(P$so2_max[k], 0), nox = P$nox_max[k])
+        for (p in names(t)) for (l in seq_along(w)) tot <- tot + t[[p]] * w[l] * vg[[sprintf("e_%s_%s_l%d", g, p, app$meta$site_layers[l])]][r] }
+      tot / sum(vp[[paste0("p_", g)]])
+    }, 0)
+    grp$ratio_va <- ex_va / ex_va[grp$group == "Total"]; grp$dpm_va_ugm3 <- ex_va; grp$pop_va <- vapply(grp$group, function(g) sum(vp[[paste0("p_", g)]]), 0)
+  } else say("  (build/isrm_source_groups_va.csv does not cover the current site cells: rerun scripts/03 --site-cells, see README)")
+}
 if (!is.null(grp)) {
   fwrite(grp, file.path(OUT, "va_permits_groups.csv"))
-  say("WHO IS EXPOSED (all sites at their limits; exposure relative to everyone in the contiguous US)")
+  say("WHO IS EXPOSED (all sites at their limits; block groups, ACS 2019-2023). Exposure relative to everyone in the contiguous US%s",
+      if (all(is.na(grp$ratio_va))) "" else ", and among Virginia residents relative to all Virginians")
   for (g in c("WhiteNoLat", "Black", "Asian", "Latino", "income_q1", "income_q5", "below_poverty"))
-    with(grp[grp$group == g, ], say("  %-28s x%.2f", label, ratio))
+    with(grp[grp$group == g, ], say("  %-28s US x%.2f%s", label, ratio, if (is.na(ratio_va)) "" else sprintf("   Virginia x%.2f", ratio_va)))
+  if (all(is.na(grp$ratio_va))) say("  within-Virginia comparison not built: see 'Who is exposed, within Virginia' in README.md")
 }
 # map
 va <- st_transform(app$counties[app$counties$state == "VA", ], 4326)

@@ -161,6 +161,9 @@ ch_ui <- function() {
         " Code: ", tags$a("analysis/09_chen2026_comparison.R", href = paste0(REPO, "analysis/09_chen2026_comparison.R"), target = "_blank"), ". Built ", ch$built, ".")))
 }
 
+SES_NOTE <- paste("Population groups: American Community Survey 2019-2023 (5-year), at the census block group (2023 boundaries).",
+                  "Income fifths rank every US block group by median household income, each fifth holding a fifth of the US population,",
+                  "so Virginia, a high-income state, has fewer than a fifth of its people in the lowest fifth.")
 va_ui <- function() {
   if (is.null(va)) return(card(card_header("Not built yet"), p("Run analysis/05_va_permits.R and then analysis/06_va_noise.R (see 'Virginia data center air permits' in README.md), then restart the app.")))
   S <- va$sites; num <- function(x) suppressWarnings(as.numeric(x))
@@ -181,21 +184,25 @@ va_ui <- function() {
                 if (is.finite(rep_nox)) sprintf("of the permitted NOx: Loudoun County's data centers reported %s tons to DEQ", fmt(rep_t)) else "add deq_reported.csv and rerun analysis/05", theme = "info"),
       value_box("PM2.5 deaths per year", sprintf("%s to %s", sig(sum(num(S$deaths_rep), na.rm = TRUE), 2), sig(sum(num(S$deaths_max), na.rm = TRUE), 2)),
                 "from the reported level to every permit at its limit", theme = "danger")),
-    layout_columns(col_widths = c(8, 4),
+    layout_columns(col_widths = breakpoints(sm = c(12, 12), xl = c(7, 5)),
       card(card_header("Where the permitted sites are"),
         layout_columns(fill = FALSE, col_widths = c(4, 4, 4),
           selectInput("va_col", "Colour sites by", c("Permitted NOx (tons/yr)" = "nox", "Deaths/yr at the permitted maximum" = "deaths", "Generator capacity (MW)" = "mw")),
           selectInput("va_ring", "Noise rings (screening estimate)", c("None" = "none", "Generator test, one engine" = "test", "Outage: every generator" = "outage", "Cooling equipment" = "cool"), selected = "none"),
           radioButtons("va_case", "Noise assumption", c("Quieter" = "quiet", "Central" = "central", "Louder" = "loud"), selected = "central", inline = TRUE)),
+        radioButtons("va_view", NULL, c("Northern Virginia" = "nova", "All of Virginia" = "all"), inline = TRUE),
         leafletOutput("va_map", height = 560),
         helpText("Circle size: generator capacity. Hollow circles are permits placed at their county's centre because the site could not be located;",
                  "they have no noise rings. Rings (55 dB(A) inner, 45 dB(A) outer) are drawn downwind with no barriers; see the noise section below.")),
-      card(card_header("Air pollution: four cases"), tableOutput("va_cases"),
-           helpText("Reported level: every permit at the share of its limits that Loudoun County's data centers reported using in 2025.",
+      card(card_header("Air pollution: four cases, deaths under three assumptions"), tableOutput("va_cases"),
+           helpText("The last three columns are deaths a year from the PM2.5 these emissions form (InMAP).",
+                    "Reported level: every permit at the share of its limits that Loudoun County's data centers reported using in 2025.",
                     "Routine testing: each engine's permitted testing hours (32 h where none is stated) at 75% load, at EPA Tier 2 rates.",
-                    "Grid support adds 50 h per engine in grid emergencies, crediting SCR. Deaths from the PM2.5 these cause (InMAP, Krewski)."),
+                    "Grid support adds 50 h per engine in grid emergencies, crediting SCR.",
+                    "Krewski: 6% more deaths per 10 ug/m3. Orellano (2024 WHO meta-analysis): 9.5%.",
+                    "2012 chemistry: the model's air chemistry is that of 2005; with the cleaner air of 2012 a tonne of NOx forms 29% less particulate (Holt et al. 2015)."),
            card_header("Operating terms in the permits"), tableOutput("va_terms"))),
-    layout_columns(col_widths = breakpoints(sm = c(12, 12, 12), xl = c(5, 4, 3)),
+    layout_columns(col_widths = breakpoints(sm = c(12, 12, 12), xl = c(4, 3, 5)),
       table_card("Permitted, estimated and reported", tableOutput("va_reported"),
            helpText("Reported: DEQ's draft 2025 inventory of data center emissions in Loudoun County, and DEQ's assessment of one site (Vantage VA2, whose gas turbines run as primary power).",
                     "The inventory covers sites running in 2025; the permits include sites still being built, so a running site uses a larger share of its limit than the county figure.",
@@ -203,9 +210,7 @@ va_ui <- function() {
       table_card("How well the permits were read, and where sites are", tableOutput("va_checks"),
            helpText("The check was a second reading by the same analyst, with the PDF open, of permits drawn at random; testing hours were not checked.",
                     "Every miss read too few engines; the misses found were corrected by hand. Site points: see Methods for each source.")),
-      table_card("Who is exposed", tableOutput("va_who"),
-           helpText("Population-weighted PM2.5 from every site at its permitted maximum, relative to everyone in the contiguous US.",
-                    "This mostly reflects where in Virginia the sites are, not which neighbourhoods are next to them."))),
+      table_card("Who is exposed to the PM2.5", tableOutput("va_who"), uiOutput("va_who_note"))),
     if (!is.null(va$aermod)) layout_columns(col_widths = c(7, 5),
       card(card_header("Next to the sites: near-field model (AERMOD)"),
            layout_columns(fill = FALSE, col_widths = c(7, 5),
@@ -230,8 +235,7 @@ va_ui <- function() {
            helpText("People living where the level is at or above the threshold, with every site's cooling (or every site's generators in an outage) added together;",
                     "a test is one engine at one site at a time. Located sites only, so the counts are low.",
                     "Quieter, central and louder are the enclosure (Level 2, Level 1, none) or the chillers (extra-low-noise, low-noise, standard).")),
-      table_card("Who lives within 45 dB(A) of cooling", tableOutput("va_noise_who"),
-           helpText("Share of people inside the central-case contour, relative to Virginia's share."))),
+      table_card("Who lives within 45 dB(A) of cooling", tableOutput("va_noise_who"), uiOutput("va_noise_who_note"))),
     div(class = "small text-muted", style = "max-width: 1000px",
       p(strong("Notes. "), "Permits were saved by hand from DEQ's list (DEQ refuses scripted downloads) and read by scripts/08; values that could not be read reliably were read by hand.",
         "Not available: ", va$missing, ". Built ", va$built, ".")))
@@ -716,10 +720,19 @@ server <- function(input, output, session) {
     VS$mw <- num(VS$total_ekw) / 1e3; VS$nox_tpy <- num(VS$nox_tpy); VS$geo <- !grepl("^county", VS$placed)
     yn <- function(x) ifelse(x %in% c(TRUE, "TRUE", "True"), "yes", "no")
     output$va_map <- renderLeaflet({
-      leaflet(options = leafletOptions(preferCanvas = TRUE)) |> addProviderTiles(providers$Esri.WorldGrayCanvas) |> setView(-77.5, 38.9, 10)
+      leaflet(options = leafletOptions(preferCanvas = TRUE)) |> addProviderTiles(providers$Esri.WorldGrayCanvas) |> setView(-77.5, 38.93, 10)
     })
+    # The map sits on a tab that is hidden at start, so it does not exist yet when the app loads. Sites are drawn once the
+    # browser reports the map (its bounds), and again whenever a control changes.
+    va_ready <- reactiveVal(FALSE)
+    observeEvent(input$va_map_bounds, va_ready(TRUE), once = TRUE)
+    observeEvent(input$va_view, {
+      req(va_ready())
+      if (input$va_view == "all") leafletProxy("va_map") |> fitBounds(min(VS$lon, na.rm = TRUE), min(VS$lat, na.rm = TRUE), max(VS$lon, na.rm = TRUE), max(VS$lat, na.rm = TRUE))
+      else leafletProxy("va_map") |> setView(-77.5, 38.93, 10)
+    }, ignoreInit = TRUE)
     observe({
-      req(input$va_col, input$va_ring, input$va_case)
+      req(va_ready(), input$va_col, input$va_ring, input$va_case)
       v <- switch(input$va_col, nox = VS$nox_tpy, deaths = num(VS$deaths_max), mw = VS$mw)
       pal <- colorNumeric("YlOrRd", domain = range(v, na.rm = TRUE), na.color = "#bbbbbb")
       ttl <- c(nox = "Permitted NOx (short tons/yr)", deaths = "Deaths/yr, permitted max", mw = "Generators (MW)")[[input$va_col]]
@@ -741,15 +754,19 @@ server <- function(input, output, session) {
         addLegend("bottomright", pal = pal, values = v[is.finite(v)], title = ttl)
     })
     output$va_cases <- renderTable({
-      g <- VS[is.finite(num(VS$deaths_grid)), ]; hasrep <- any(is.finite(num(VS$deaths_rep)))
-      d <- data.frame(Case = c("Routine testing", "Testing + 50 h grid support", "Permitted maximum", sprintf("Permitted maximum, all %d permits", nrow(VS))),
-                 Permits = c(rep(nrow(g), 3), nrow(VS)),
-                 `NOx (t/yr)` = fmt(c(sum(num(g$nox_test)), sum(num(g$nox_grid)), sum(g$nox_tpy, na.rm = TRUE) * 0.90718474, sum(VS$nox_tpy, na.rm = TRUE) * 0.90718474)),
-                 `Deaths/yr` = sig(c(sum(num(g$deaths_test)), sum(num(g$deaths_grid)), sum(num(g$deaths_max)), sum(num(VS$deaths_max), na.rm = TRUE)), 3), check.names = FALSE)
-      if (hasrep) d <- rbind(data.frame(Case = sprintf("Reported level (Loudoun 2025), all %d permits", nrow(VS)), Permits = nrow(VS),
-                                        `NOx (t/yr)` = fmt(sum(num(VS$nox_rep), na.rm = TRUE)), `Deaths/yr` = sig(sum(num(VS$deaths_rep), na.rm = TRUE), 3), check.names = FALSE), d)
+      g <- VS[is.finite(num(VS$deaths_grid)), ]; st <- 0.90718474; bo <- CRF$orellano$beta / CRF$krewski$beta
+      tot <- function(d, col) if (is.null(d[[col]])) NA_real_ else sum(num(d[[col]]), na.rm = TRUE)
+      rows <- list(list(sprintf("Reported level (Loudoun 2025), all %d permits", nrow(VS)), VS, "nox_rep", "deaths_rep"),
+                   list(sprintf("Routine testing, %d permits with equipment", nrow(g)), g, "nox_test", "deaths_test"),
+                   list("Testing + 50 h grid support, same permits", g, "nox_grid", "deaths_grid"),
+                   list("Permitted maximum, same permits", g, NA, "deaths_max"),
+                   list(sprintf("Permitted maximum, all %d permits", nrow(VS)), VS, NA, "deaths_max"))
+      d <- do.call(rbind, lapply(rows, function(r) { k <- tot(r[[2]], r[[4]])
+        data.frame(Case = r[[1]], `NOx (t/yr)` = fmt(if (is.na(r[[3]])) sum(r[[2]]$nox_tpy, na.rm = TRUE) * st else tot(r[[2]], r[[3]])),
+                   `Krewski (main)` = sig(k, 3), `Orellano` = sig(k * bo, 3), `Krewski, 2012 chemistry` = sig(tot(r[[2]], paste0(r[[4]], "_chem")), 3), check.names = FALSE) }))
+      if (!any(is.finite(num(VS$deaths_rep)))) d <- d[-1, ]
       d
-    }, striped = TRUE, spacing = "s")
+    }, striped = TRUE, spacing = "s", align = "lrrrr")
     output$va_reported <- renderTable({
       rp <- va$reported; req(rp); lo <- VS[VS$fips == "51107", ]; lg <- lo[is.finite(num(lo$deaths_grid)), ]; st <- 0.90718474
       cn <- function(pl) rp$reported_tons[rp$scope == "county" & rp$pollutant == pl]
@@ -814,14 +831,35 @@ server <- function(input, output, session) {
                  Louder = mapply(get, rows$source, rows$level, "loud"), check.names = FALSE, row.names = NULL)
     }, striped = TRUE, spacing = "s", align = "llrrr")
     GRP_LAB <- c(WhiteNoLat = "White, non-Latino", Black = "Black", Asian = "Asian", Latino = "Latino", income_q1 = "Lowest-income fifth", income_q5 = "Highest-income fifth")
+    xr <- function(r, d = NULL, unit = "") ifelse(is.na(r), "-", if (is.null(d)) sprintf("x%.2f", r) else sprintf("x%.2f (%+.2g%s)", r, d, unit))
     output$va_who <- renderTable({
-      ag <- va$air_groups
-      data.frame(Group = unname(GRP_LAB), `Exposure vs US` = sprintf("x%.2f", ag$ratio[match(names(GRP_LAB), ag$group)]), check.names = FALSE)
-    }, striped = TRUE, spacing = "s", align = "lr")
+      ag <- va$air_groups; k <- match(names(GRP_LAB), ag$group); tot <- match("Total", ag$group)
+      du <- (ag$dpm_ugm3[k] - ag$dpm_ugm3[tot]) * 1e3                                          # ng/m3
+      dv <- if (is.null(ag$dpm_va_ugm3)) NULL else (ag$dpm_va_ugm3[k] - ag$dpm_va_ugm3[tot]) * 1e3
+      data.frame(Group = unname(GRP_LAB), `Among Virginians` = xr(if (is.null(ag$ratio_va)) NA else ag$ratio_va[k], dv),
+                 `Whole contiguous US` = xr(ag$ratio[k], du), check.names = FALSE)
+    }, striped = TRUE, spacing = "s", align = "lrr")
+    output$va_who_note <- renderUI({
+      ag <- va$air_groups; tot <- match("Total", ag$group)
+      helpText(sprintf("Average PM2.5 from every site at its permitted maximum that reaches each group: as a ratio to the average for everyone, and in brackets the difference from it in ng/m3 (thousandths of a ug/m3). The average for everyone is %s ng/m3 among people living in Virginia%s and %s ng/m3 across the contiguous US, most of whom live far away.",
+                       if (is.null(ag$dpm_va_ugm3) || is.na(ag$dpm_va_ugm3[tot])) "-" else sig(ag$dpm_va_ugm3[tot] * 1e3, 2),
+                       if (is.null(ag$dpm_va_ugm3) || is.na(ag$dpm_va_ugm3[tot])) " (not built yet, see the README)" else "", sig(ag$dpm_ugm3[tot] * 1e3, 2)),
+               "The model's grid here is 1 km or more, so this reflects which parts of the region the sites are in, not which streets are next to them.", SES_NOTE)
+    })
     output$va_noise_who <- renderTable({
-      pp <- va$people[va$people$source == "cool" & va$people$case == "central" & va$people$level_dba == 45, ]
-      data.frame(Group = unname(GRP_LAB), `Share vs Virginia` = sprintf("x%.2f", pp$ratio_to_va[match(names(GRP_LAB), pp$group)]), check.names = FALSE)
-    }, striped = TRUE, spacing = "s", align = "lr")
+      pp <- va$people[va$people$source == "cool" & va$people$case == "central" & va$people$level_dba == 45, ]; k <- match(names(GRP_LAB), pp$group)
+      pts <- function(ref) if (is.null(ref)) NULL else 100 * (pp$share[k] - ref[k])
+      data.frame(Group = unname(GRP_LAB), `Share inside` = sprintf("%.0f%%", 100 * pp$share[k]),
+                 `vs Virginia's population` = xr(pp$ratio_to_va[k], pts(pp$va_share), " pts"),
+                 `vs the US population` = xr(if (is.null(pp$ratio_to_us)) NA else pp$ratio_to_us[k], pts(pp$us_share), " pts"), check.names = FALSE)
+    }, striped = TRUE, spacing = "s", align = "lrrr")
+    output$va_noise_who_note <- renderUI({
+      d <- num(VS$d45_cool_central); d <- d[VS$geo & is.finite(d) & d > 0]
+      n <- va$people$people[va$people$source == "cool" & va$people$case == "central" & va$people$level_dba == 45 & va$people$group == "pop"]
+      helpText(sprintf("The %s people living where cooling noise is 45 dB(A) or more in the central case (low-noise chillers). There is no single distance: the contour depends on each site's size. It reaches a median of %s m from a site, %s m at the 90th percentile and %s m at the largest, and neighbouring sites add together.",
+                       fmt(signif(n, 3)), fmt(median(d)), fmt(quantile(d, 0.9)), fmt(max(d))),
+               "Each ratio is a group's share of those people divided by its share of Virginia's, or the contiguous US's, population; in brackets, the difference between the two shares in percentage points. ", SES_NOTE)
+    })
     output$va_tab <- renderDT({
       d <- data.frame(Permit = VS$registration, Site = VS$site, Locality = VS$locality, Issued = VS$issued, Engines = num(VS$engines),
                       MW = round(VS$mw, 1), `Make and model` = VS$model_family, `SCR engines` = num(VS$scr_engines),
