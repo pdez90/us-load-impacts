@@ -55,6 +55,7 @@ registration,lon,lat,source,detail
 74242-2,-77.42862567,38.99868212,Loudoun County address point,"22318 GLENN DR, STERLING"
 74250-2,-77.518706,38.899353,EPA facility record,"AMAZON DATA SERVICES IAD-156, IAD-157, IAD-158, IAD-159, AND IAD-327, 43920 LONE CEDAR LANE"
 74252-2,-77.47813,39.041947,EPA facility record,"AMAZON DATA SERVICES IAD-215, 44725 GIGABIT PLAZA"
+74260-2,-77.618097,38.801688,located by hand,"Permit says 7253 Grove Hill Road; NTT gives VA10 as 7253 Grove Hill Blvd, Gainesville, a new street no geocoder has. The campus is also listed at 14300 John Marshall Highway (datacenterhawk.com; baxtel.com), used here [OpenStreetMap address: 14300, John Marshall Highway, Parks of Piedmont, Gainesville, Prince William County, Virginia, 20155, United States]"
 74265-3,-77.54788024,38.95474349,Loudoun County address point,"42455 ALLEGRO LN, ALDIE"
 74284-2,-77.504345,39.07518,EPA facility record,"VANTAGE DATA CENTER VA3 LLC, 19590 BELMONT RIDGE ROAD"
 74287-1,-77.464002,38.970032,EPA facility record,"VANTAGE DATA CENTERS VA16 LLC, 22321 PACIFIC BVD"
